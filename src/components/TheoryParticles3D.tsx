@@ -396,12 +396,15 @@ function Scene({
         <>
           <TheoryLabel text={theoryA.name} position={[offsetA[0], 2.3, 0]} color="#60a5fa" />
           {dotsA.map((d, i) => (
-            <FactorDot key={`a-${i}`} position={d.pos} targetPosition={d.pos}
-              color="#3b82f6" size={0.06 + d.weight * 0.08} factor={d.factor}
-              opacity={0.7 + d.weight * 0.3} highlighted={activeFactor === d.factor}
-              onHover={setHoveredFactor} onClick={setClickedFactor}
-              phase={phase} motion={d.motion}
-            />
+            <group key={`a-${i}`}>
+              <FactorDot position={d.pos} targetPosition={d.pos}
+                color="#3b82f6" size={0.06 + d.weight * 0.08} factor={d.factor}
+                opacity={0.7 + d.weight * 0.3} highlighted={activeFactor === d.factor}
+                onHover={setHoveredFactor} onClick={setClickedFactor}
+                phase={phase} motion={d.motion}
+              />
+              <SubParticleCloud center={d.pos} color="#3b82f6" count={8} phase={phase} />
+            </group>
           ))}
         </>
       )}
