@@ -159,6 +159,11 @@ function FactorDot({
 
   return (
     <group>
+      {/* Particle trail */}
+      <instancedMesh ref={trailRef} args={[undefined, undefined, TRAIL_LENGTH]}>
+        <sphereGeometry args={[1, 6, 6]} />
+        <meshBasicMaterial color={color} transparent opacity={0.25} />
+      </instancedMesh>
       {/* Visible dot */}
       <mesh
         ref={meshRef}
@@ -176,7 +181,7 @@ function FactorDot({
           opacity={opacity}
         />
       </mesh>
-      {/* Larger invisible hit area for easier clicking */}
+      {/* Larger invisible hit area */}
       <mesh
         position={position}
         visible={false}
@@ -187,7 +192,7 @@ function FactorDot({
         <sphereGeometry args={[3, 8, 8]} />
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
-      {/* Highlight ring when selected */}
+      {/* Highlight ring */}
       {highlighted && (
         <mesh ref={meshRef} position={position}>
           <ringGeometry args={[1.6, 2.2, 24]} />
