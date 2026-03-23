@@ -9,6 +9,7 @@ import {
   Zap, Shuffle, ChevronRight, Star, Clock, Link2, Atom,
   Sparkles, ArrowRight, X, History, AlertTriangle,
 } from "lucide-react";
+import TheoryParticles3D from "@/components/TheoryParticles3D";
 import {
   THEORIES, DOMAINS, COLLISION_MODES, DOMAIN_COLORS, DOMAIN_CLASSES,
   getTheoriesByDomain,
@@ -519,10 +520,14 @@ export default function CollisionEnginePage() {
             </div>
           )}
 
-          {/* Collision animation */}
-          {isColliding && (
-            <CollisionAnimation colorA={colorA} colorB={colorB} />
-          )}
+          {/* 3D Particle Visualization */}
+          <div className="relative h-[350px] mb-4 flex-shrink-0">
+            <TheoryParticles3D
+              theoryA={selectedTheories[0] ?? null}
+              theoryB={selectedTheories[1] ?? null}
+              isColliding={isColliding}
+            />
+          </div>
 
           {/* Result */}
           <div ref={resultRef}>
@@ -534,18 +539,6 @@ export default function CollisionEnginePage() {
               </Card>
             )}
           </div>
-
-          {/* Empty state */}
-          {!currentResult && !isColliding && !error && (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center py-12">
-                <Atom className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground/40">
-                  Select two theories and collide them to discover novel frameworks
-                </p>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ─── RIGHT: History ─── */}
