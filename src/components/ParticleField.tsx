@@ -1,9 +1,61 @@
 import { useRef, useMemo, useCallback } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { OrbitControls, Text, Billboard } from "@react-three/drei";
 import * as THREE from "three";
 import type { CollisionTheory, DomainKey } from "@/data/collision-theories";
 import { DOMAIN_COLORS } from "@/data/collision-theories";
+
+// ─── Floating label above particle cloud ─────────────────────
+function TheoryLabel({
+  theory,
+  side,
+  isColliding,
+}: {
+  theory: CollisionTheory;
+  side: "left" | "right";
+  isColliding: boolean;
+}) {
+  const groupRef = useRef<THREE.Group>(null);
+  const colorHex = DOMAIN_COLORS[theory.domain as DomainKey] ?? "#888888";
+  const baseX = side === "left" ? -2.5 : 2.5;
+
+  useFrame((state) => {
+    if (!groupRef.current) return;
+    const targetX = isColliding ? 0 : baseX;
+    groupRef.current.position.x += (targetX - groupRef.current.position.x) * 0.03;
+    // Gentle float
+    groupRef.current.position.y = 1.8 + Math.sin(state.clock.elapsedTime * 0.8 + (side === "left" ? 0 : Math.PI)) * 0.08;
+  });
+
+  return (
+    <group ref={groupRef} position={[baseX, 1.8, 0]}>
+      <Billboard follow lockX={false} lockY={false} lockZ={false}>
+        <Text
+          fontSize={0.22}
+          color={colorHex}
+          anchorX="center"
+          anchorY="bottom"
+          font="https://fonts.gstatic.com/s/jetbrainsmono/v18/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKxjPVmUsaaDhw.woff2"
+          maxWidth={3}
+          textAlign="center"
+        >
+          {theory.name}
+        </Text>
+        <Text
+          fontSize={0.14}
+          color={colorHex}
+          anchorX="center"
+          anchorY="top"
+          position={[0, -0.08, 0]}
+          fillOpacity={0.5}
+          font="https://fonts.gstatic.com/s/jetbrainsmono/v18/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKxjPVmUsaaDhw.woff2"
+        >
+          {theory.nameCn}
+        </Text>
+      </Billboard>
+    </group>
+  );
+}
 
 // ─── Factor-based motion pattern classification ─────────────
 // Each factor keyword maps to a motion archetype that shapes particle behavior
@@ -407,20 +459,16 @@ export default function ParticleField({
         <AmbientDust />
 
         {theoryA && (
-          <TheoryParticles
-            theory={theoryA}
-            side="left"
-            isColliding={isColliding}
-            otherSelected={!!theoryB}
-          />
+          <>
+            <TheoryParticles theory={theoryA} side="left" isColliding={isColliding} otherSelected={!!theoryB} />
+            <TheoryLabel theory={theoryA} side="left" isColliding={isColliding} />
+          </>
         )}
         {theoryB && (
-          <TheoryParticles
-            theory={theoryB}
-            side="right"
-            isColliding={isColliding}
-            otherSelected={!!theoryA}
-          />
+          <>
+            <TheoryParticles theory={theoryB} side="right" isColliding={isColliding} otherSelected={!!theoryA} />
+            <TheoryLabel theory={theoryB} side="right" isColliding={isColliding} />
+          </>
         )}
 
         {theoryA && theoryB && (
