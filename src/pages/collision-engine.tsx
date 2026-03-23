@@ -272,10 +272,6 @@ export default function CollisionEnginePage() {
 
   const handleCollide = useCallback(async () => {
     if (selectedTheories.length !== 2) return;
-    if (!apiKey) {
-      setApiKeyOpen(true);
-      return;
-    }
 
     const [theoryA, theoryB] = selectedTheories;
     const mode = COLLISION_MODES.find(m => m.key === collisionMode)!;
@@ -285,55 +281,22 @@ export default function CollisionEnginePage() {
     setError("");
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1200,
-          messages: [{
-            role: "user",
-            content: `You are a cross-disciplinary synthesis engine. Given two theories from different domains, find deep structural connections and generate a novel framework.
-
-THEORY A: ${theoryA.name} (${theoryA.domain})
-Core: ${theoryA.core}
-Key factors: ${theoryA.factors.join(", ")}
-
-THEORY B: ${theoryB.name} (${theoryB.domain})
-Core: ${theoryB.core}
-Key factors: ${theoryB.factors.join(", ")}
-
-COLLISION MODE: ${mode.label} (${mode.labelCn}) — ${mode.desc}
-
-Respond ONLY in JSON (no markdown, no backticks):
-{
-  "framework_name": "A creative name for the new framework (English + Chinese)",
-  "core_insight": "2-3 sentences describing the novel insight from this collision",
-  "structural_similarities": ["list of 3-4 deep structural parallels found"],
-  "novel_connections": ["list of 2-3 genuinely surprising cross-domain links"],
-  "practical_applications": ["list of 2-3 concrete business/product applications"],
-  "quality_score": 7,
-  "reasoning": "1 sentence on why this collision is or isn't productive"
-}`,
-          }],
-        }),
+      const res = await supabase.functions.invoke("collide-theories", {
+        body: { theoryA, theoryB, collisionMode: mode },
       });
 
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({ error: { message: `HTTP ${res.status}` } }));
-        throw new Error(errBody.error?.message ?? `API error: ${res.status}`);
+      if (res.error) {
+        throw new Error(res.error.message ?? "Collision failed");
       }
 
-      const data = await res.json();
-      const text = data.content?.[0]?.text ?? "";
+      const parsed = res.data;
+      if (parsed.error) {
+        throw new Error(parsed.error);
+      }
 
-      // Parse JSON from response (handle potential markdown wrapping)
-      let jsonStr = text.trim();
+      let jsonStr = JSON.stringify(parsed); // already parsed
+      // If the edge function returned raw text, handle it
+      const _parsed = typeof parsed === "string" ? JSON.parse(parsed) : parsed;
       if (jsonStr.startsWith("```")) {
         jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
       }
