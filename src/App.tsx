@@ -15,6 +15,7 @@ import SettingsPage from "@/pages/settings";
 import TheoriesPage from "@/pages/theories";
 import CollisionsPage from "@/pages/collisions";
 import CollisionEnginePage from "@/pages/collision-engine";
+import TheoryCollider3DPage from "@/pages/theory-collider-3d";
 import { useEffect, useState, createContext, useContext } from "react";
 
 const ThemeContext = createContext<{ dark: boolean; toggle: () => void }>({ dark: true, toggle: () => {} });
@@ -54,6 +55,7 @@ function AppRouter() {
         <Route path="/theories" component={TheoriesPage} />
         <Route path="/collisions" component={CollisionsPage} />
         <Route path="/collision-engine" component={CollisionEnginePage} />
+        <Route path="/theory-collider-3d" component={TheoryCollider3DPage} />
         <Route path="/products" component={ProductsPage} />
         <Route path="/analytics" component={AnalyticsPage} />
         <Route path="/settings" component={SettingsPage} />
