@@ -522,9 +522,16 @@ export default function CollisionEnginePage() {
             </div>
           )}
 
-          {/* Collision animation */}
-          {isColliding && (
-            <CollisionAnimation colorA={colorA} colorB={colorB} />
+          {/* 3D Particle Visualization */}
+          {(selectedTheories.length > 0 || isColliding) && (
+            <div className="mb-4 flex-shrink-0">
+              <CollisionScene3D
+                theoryA={selectedTheories[0] ?? null}
+                theoryB={selectedTheories[1] ?? null}
+                colliding={isColliding}
+                className="w-full h-72 rounded-lg overflow-hidden border border-border/50 bg-[hsl(225,50%,4%)]"
+              />
+            </div>
           )}
 
           {/* Result */}
