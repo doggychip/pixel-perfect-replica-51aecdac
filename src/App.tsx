@@ -55,6 +55,7 @@ function AppRouter() {
         <Route path="/theories" component={TheoriesPage} />
         <Route path="/collisions" component={CollisionsPage} />
         <Route path="/collision-engine" component={CollisionEnginePage} />
+        <Route path="/theory-collider-3d" component={TheoryCollider3DPage} />
         <Route path="/products" component={ProductsPage} />
         <Route path="/analytics" component={AnalyticsPage} />
         <Route path="/settings" component={SettingsPage} />
