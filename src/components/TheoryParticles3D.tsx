@@ -403,7 +403,7 @@ function Scene({
                 onHover={setHoveredFactor} onClick={setClickedFactor}
                 phase={phase} motion={d.motion}
               />
-              <SubParticleCloud center={d.pos} color="#3b82f6" count={8} phase={phase} />
+              <SubParticleCloud center={d.pos} color="#3b82f6" count={15} phase={phase} />
             </group>
           ))}
         </>
@@ -421,7 +421,7 @@ function Scene({
                 onHover={setHoveredFactor} onClick={setClickedFactor}
                 phase={phase} motion={d.motion}
               />
-              <SubParticleCloud center={d.pos} color="#ef4444" count={8} phase={phase} />
+              <SubParticleCloud center={d.pos} color="#ef4444" count={15} phase={phase} />
             </group>
           ))}
         </>
