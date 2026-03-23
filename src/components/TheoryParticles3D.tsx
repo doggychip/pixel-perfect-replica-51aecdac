@@ -110,11 +110,46 @@ function FactorDot({
 
     let target: THREE.Vector3;
     if (phase === "idle") {
-      target = new THREE.Vector3(
-        position[0] + Math.sin(t * 0.5 + size * 10) * 0.08,
-        position[1] + Math.cos(t * 0.4 + size * 7) * 0.08,
-        position[2] + Math.sin(t * 0.3 + size * 5) * 0.06,
-      );
+      const s = size * 10; // seed from size for variety
+      if (motion === "orbit") {
+        // Smooth circular orbit
+        target = new THREE.Vector3(
+          position[0] + Math.cos(t * 0.6 + s) * 0.18,
+          position[1] + Math.sin(t * 0.6 + s) * 0.18,
+          position[2] + Math.sin(t * 0.3 + s) * 0.05,
+        );
+      } else if (motion === "pulse") {
+        // Breathing in/out along radial
+        const breathe = 1 + Math.sin(t * 1.2 + s) * 0.12;
+        target = new THREE.Vector3(
+          position[0] * breathe,
+          position[1] * breathe,
+          position[2] * breathe,
+        );
+      } else if (motion === "wave") {
+        // Wave-like undulation on Y
+        target = new THREE.Vector3(
+          position[0] + Math.sin(t * 0.8 + s) * 0.05,
+          position[1] + Math.sin(t * 1.5 + position[0] * 3) * 0.2,
+          position[2],
+        );
+      } else if (motion === "spiral") {
+        // Spiraling path
+        const angle = t * 0.7 + s;
+        const r = 0.12;
+        target = new THREE.Vector3(
+          position[0] + Math.cos(angle) * r,
+          position[1] + Math.sin(angle) * r * 0.6,
+          position[2] + Math.sin(angle * 0.5) * r,
+        );
+      } else {
+        // jitter — quick random-ish jitter
+        target = new THREE.Vector3(
+          position[0] + Math.sin(t * 3 + s) * 0.06,
+          position[1] + Math.cos(t * 2.7 + s * 1.3) * 0.06,
+          position[2] + Math.sin(t * 2.3 + s * 0.7) * 0.04,
+        );
+      }
     } else if (phase === "approach") {
       target = new THREE.Vector3(...targetPosition).multiplyScalar(0.4);
     } else if (phase === "explode") {
