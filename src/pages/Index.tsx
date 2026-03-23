@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { type Theory } from "@/data/theories";
 import { type CollisionResult } from "@/types/collision";
 import { TheoryLibrary } from "@/components/TheoryLibrary";
+
 import { CollisionZone } from "@/components/CollisionZone";
 import { CollisionHistory } from "@/components/CollisionHistory";
 
