@@ -528,6 +528,17 @@ export default function CollisionEnginePage() {
               isColliding={isColliding}
             />
           </div>
+
+          {/* Result */}
+          <div ref={resultRef}>
+            {currentResult && !isColliding && (
+              <Card className="bg-card/50 border-card-border">
+                <CardContent className="p-5">
+                  <ResultCard result={currentResult} />
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
 
         {/* ─── RIGHT: History ─── */}
