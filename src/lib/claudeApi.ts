@@ -1,4 +1,4 @@
-import { type Theory } from "@/data/theories";
+import { type CollisionTheory } from "@/data/collision-theories";
 import { type CollisionResult } from "@/types/collision";
 
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
@@ -16,19 +16,19 @@ export function clearApiKey() {
 }
 
 export async function collideWithClaude(
-  theoryA: Theory,
-  theoryB: Theory,
+  theoryA: CollisionTheory,
+  theoryB: CollisionTheory,
   mode: string,
   modeDesc: string,
   apiKey: string
 ): Promise<CollisionResult> {
   const prompt = `You are the Theory Collision Engine. You collide two theories from different domains to produce novel intellectual frameworks.
 
-Theory A: "${theoryA.name}" (${theoryA.chinese}) from ${theoryA.domain}
+Theory A: "${theoryA.name}" (${theoryA.nameCn}) from ${theoryA.domain}
 Core: ${theoryA.core}
 Key factors: ${theoryA.factors.join(", ")}
 
-Theory B: "${theoryB.name}" (${theoryB.chinese}) from ${theoryB.domain}
+Theory B: "${theoryB.name}" (${theoryB.nameCn}) from ${theoryB.domain}
 Core: ${theoryB.core}
 Key factors: ${theoryB.factors.join(", ")}
 
@@ -70,13 +70,11 @@ Return ONLY the JSON object, no markdown formatting or code blocks.`;
 
   const data = await response.json();
   const text = data.content[0]?.text || "";
-  
-  // Try to parse JSON from the response
+
   let parsed: any;
   try {
     parsed = JSON.parse(text);
   } catch {
-    // Try to extract JSON from markdown code blocks
     const match = text.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (match) {
       parsed = JSON.parse(match[1].trim());
@@ -87,8 +85,8 @@ Return ONLY the JSON object, no markdown formatting or code blocks.`;
 
   return {
     id: crypto.randomUUID(),
-    theoryA: { name: theoryA.name, chinese: theoryA.chinese, domain: theoryA.domain },
-    theoryB: { name: theoryB.name, chinese: theoryB.chinese, domain: theoryB.domain },
+    theoryA: { name: theoryA.name, chinese: theoryA.nameCn, domain: theoryA.domain },
+    theoryB: { name: theoryB.name, chinese: theoryB.nameCn, domain: theoryB.domain },
     mode,
     framework_name: parsed.framework_name,
     core_insight: parsed.core_insight,

@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { type Theory } from "@/data/theories";
+import { type CollisionTheory } from "@/data/collision-theories";
 import { type CollisionResult } from "@/types/collision";
 import { TheoryLibrary } from "@/components/TheoryLibrary";
 import { CollisionZone } from "@/components/CollisionZone";
@@ -9,13 +9,13 @@ import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const Index = () => {
-  const [selected, setSelected] = useState<Theory[]>([]);
+  const [selected, setSelected] = useState<CollisionTheory[]>([]);
   const [history, setHistory] = useState<CollisionResult[]>([]);
   const [currentResult, setCurrentResult] = useState<CollisionResult | null>(null);
   const [isColliding, setIsColliding] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
 
-  const handleSelect = useCallback((theory: Theory) => {
+  const handleSelect = useCallback((theory: CollisionTheory) => {
     setSelected((prev) => {
       const exists = prev.find((t) => t.id === theory.id);
       if (exists) return prev.filter((t) => t.id !== theory.id);
@@ -34,11 +34,11 @@ const Index = () => {
   }, []);
 
   const handleChainCollide = useCallback((result: CollisionResult) => {
-    const syntheticTheory: Theory = {
+    const syntheticTheory: CollisionTheory = {
       id: -Date.now(),
       name: result.framework_name.split("(")[0].trim(),
-      chinese: result.framework_name.includes("(") ? result.framework_name.split("(")[1]?.replace(")", "") || "" : "",
-      domain: result.theoryA.domain as Theory["domain"],
+      nameCn: result.framework_name.includes("(") ? result.framework_name.split("(")[1]?.replace(")", "") || "" : "",
+      domain: result.theoryA.domain,
       core: result.core_insight,
       factors: result.structural_similarities.slice(0, 3),
     };
@@ -47,7 +47,6 @@ const Index = () => {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      {/* Header */}
       <header className="border-b border-border/50 px-4 md:px-6 py-3 flex items-center justify-between shrink-0 glass">
         <div className="flex items-baseline gap-3">
           <h1 className="font-display text-base md:text-lg font-bold text-primary neon-text tracking-wider">
@@ -67,16 +66,11 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Main layout */}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-[280px_1fr_260px] overflow-hidden">
-        {/* Left Panel */}
-        <div className="border-r border-border/50 p-4 overflow-hidden flex flex-col min-h-0 hidden md:flex">
+        <div className="border-r border-border/50 p-4 overflow-hidden flex-col min-h-0 hidden md:flex">
           <TheoryLibrary selected={selected} onSelect={handleSelect} />
         </div>
-
-        {/* Center Panel */}
         <div className="flex-1 p-4 overflow-hidden flex flex-col min-w-0 min-h-0">
-          {/* Mobile theory selector */}
           <div className="md:hidden mb-4">
             <TheoryLibrary selected={selected} onSelect={handleSelect} />
           </div>
@@ -88,9 +82,7 @@ const Index = () => {
             currentResult={currentResult}
           />
         </div>
-
-        {/* Right Panel */}
-        <div className="border-l border-border/50 p-4 overflow-hidden flex flex-col min-h-0 hidden md:flex">
+        <div className="border-l border-border/50 p-4 overflow-hidden flex-col min-h-0 hidden md:flex">
           <CollisionHistory
             history={history}
             onSelect={handleHistorySelect}
