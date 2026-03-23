@@ -1,164 +1,130 @@
 import { useRef, useMemo, useEffect, useState, useCallback } from "react";
-import { Canvas, useFrame, useThree, ThreeEvent } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Text, Line, Html, Stars } from "@react-three/drei";
 import * as THREE from "three";
 import type { CollisionTheory } from "@/data/collision-theories";
 
-// ─── Helpers ───────────────────────────────────────────────
-type MotionPattern = "orbit" | "pulse" | "wave" | "spiral" | "jitter";
 type Phase = "idle" | "approach" | "explode" | "merge";
 
-function factorMotion(factor: string): MotionPattern {
-  const f = factor.toLowerCase();
-  if (/state|space|field|landscape|wavefunction|vacuum/.test(f)) return "orbit";
-  if (/probability|amplitude|weight|load|calibration|precision/.test(f)) return "pulse";
-  if (/collapse|measurement|observation|emergence|decoherence/.test(f)) return "wave";
-  if (/correlation|coupling|entangle|non-local|connection|social/.test(f)) return "spiral";
-  return "jitter";
-}
-
-function factorToCoords(factor: string, _index: number, _total: number) {
-  let hash = 0;
-  for (let i = 0; i < factor.length; i++) hash = ((hash << 5) - hash + factor.charCodeAt(i)) | 0;
-  const norm = (v: number) => ((v % 1000) / 1000);
-  return {
-    x: norm(Math.abs(hash)) * 2 - 1,
-    y: norm(Math.abs(hash >> 8)) * 2 - 1,
-    z: norm(Math.abs(hash >> 16)) * 2 - 1,
-    weight: 0.5 + norm(Math.abs(hash >> 4)) * 0.8,
-    motion: factorMotion(factor),
-  };
-}
-
-// ─── Factor Dot with trail ─────────────────────────────────
-function FactorDot({
-  position, color, size, factor, opacity, highlighted,
-  onHover, onClick, phase, targetPosition, motion = "jitter",
+// ─── Nebula Cloud ──────────────────────────────────────────
+// A dense instanced-mesh cloud of particles forming a nebula around a center
+function NebulaCloud({
+  center, color, count, phase, factors, activeFactor,
+  onHover, onClick,
 }: {
-  position: [number, number, number]; color: string; size: number;
-  factor: string; opacity: number; highlighted: boolean;
+  center: [number, number, number]; color: string; count: number;
+  phase: Phase; factors: string[]; activeFactor: string | null;
   onHover: (f: string | null) => void; onClick: (f: string) => void;
-  phase: Phase; targetPosition: [number, number, number]; motion?: MotionPattern;
 }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const currentPos = useRef(new THREE.Vector3(...position));
-  const glowIntensity = highlighted ? 2.0 : 0.6;
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
 
-  const TRAIL_LENGTH = 12;
-  const trailRef = useRef<THREE.InstancedMesh>(null);
-  const trailPositions = useRef<THREE.Vector3[]>(
-    Array.from({ length: TRAIL_LENGTH }, () => new THREE.Vector3(...position))
-  );
-  const trailDummy = useMemo(() => new THREE.Object3D(), []);
-  const frameCount = useRef(0);
+  // Generate particle seeds — clustered around factor positions
+  const particles = useMemo(() => {
+    const pts: { x: number; y: number; z: number; speed: number; offset: number; size: number; factorIdx: number }[] = [];
+    const factorPositions = factors.map((f, i) => {
+      let hash = 0;
+      for (let c = 0; c < f.length; c++) hash = ((hash << 5) - hash + f.charCodeAt(c)) | 0;
+      const norm = (v: number) => ((Math.abs(v) % 1000) / 1000) * 2 - 1;
+      return { x: norm(hash) * 1.2, y: norm(hash >> 8) * 1.2, z: norm(hash >> 16) * 1.2 };
+    });
+
+    // Core factor particles (larger, brighter)
+    factorPositions.forEach((fp, fi) => {
+      pts.push({ x: fp.x, y: fp.y, z: fp.z, speed: 0.3 + Math.random() * 0.3, offset: Math.random() * Math.PI * 2, size: 0.06 + Math.random() * 0.03, factorIdx: fi });
+    });
+
+    // Surrounding nebula particles clustered near factors
+    const nebulaCount = count - factors.length;
+    for (let i = 0; i < nebulaCount; i++) {
+      const fi = Math.floor(Math.random() * factorPositions.length);
+      const fp = factorPositions[fi];
+      const phi = Math.acos(2 * Math.random() - 1);
+      const theta = Math.random() * Math.PI * 2;
+      const r = 0.1 + Math.random() * 0.6; // cluster radius
+      pts.push({
+        x: fp.x + r * Math.sin(phi) * Math.cos(theta),
+        y: fp.y + r * Math.sin(phi) * Math.sin(theta),
+        z: fp.z + r * Math.cos(phi),
+        speed: 0.2 + Math.random() * 0.8,
+        offset: Math.random() * Math.PI * 2,
+        size: 0.01 + Math.random() * 0.025,
+        factorIdx: fi,
+      });
+    }
+    return pts;
+  }, [factors, count]);
+
+  // Color variations
+  const baseColor = useMemo(() => new THREE.Color(color), [color]);
+  const highlightColor = useMemo(() => new THREE.Color("#f59e0b"), []);
 
   useFrame(({ clock }) => {
     if (!meshRef.current) return;
     const t = clock.elapsedTime;
-    const s = size * 10;
 
-    let target: THREE.Vector3;
-    if (phase === "idle") {
-      if (motion === "orbit") {
-        target = new THREE.Vector3(
-          position[0] + Math.cos(t * 0.6 + s) * 0.18,
-          position[1] + Math.sin(t * 0.6 + s) * 0.18,
-          position[2] + Math.sin(t * 0.3 + s) * 0.05,
-        );
-      } else if (motion === "pulse") {
-        const breathe = 1 + Math.sin(t * 1.2 + s) * 0.12;
-        target = new THREE.Vector3(position[0] * breathe, position[1] * breathe, position[2] * breathe);
-      } else if (motion === "wave") {
-        target = new THREE.Vector3(
-          position[0] + Math.sin(t * 0.8 + s) * 0.05,
-          position[1] + Math.sin(t * 1.5 + position[0] * 3) * 0.2,
-          position[2],
-        );
-      } else if (motion === "spiral") {
-        const angle = t * 0.7 + s;
-        const r = 0.12;
-        target = new THREE.Vector3(
-          position[0] + Math.cos(angle) * r,
-          position[1] + Math.sin(angle) * r * 0.6,
-          position[2] + Math.sin(angle * 0.5) * r,
-        );
-      } else {
-        target = new THREE.Vector3(
-          position[0] + Math.sin(t * 3 + s) * 0.06,
-          position[1] + Math.cos(t * 2.7 + s * 1.3) * 0.06,
-          position[2] + Math.sin(t * 2.3 + s * 0.7) * 0.04,
-        );
-      }
-    } else if (phase === "approach") {
-      target = new THREE.Vector3(...targetPosition).multiplyScalar(0.4);
-    } else if (phase === "explode") {
-      target = new THREE.Vector3(...position).multiplyScalar(2.5);
-    } else {
-      target = new THREE.Vector3(
-        targetPosition[0] * 0.15 + Math.sin(t * 2 + s) * 0.15,
-        targetPosition[1] * 0.15 + Math.cos(t * 2 + s * 0.7) * 0.15,
-        targetPosition[2] * 0.15,
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      let cx = center[0], cy = center[1], cz = center[2];
+
+      // Phase offsets
+      let spread = 1;
+      if (phase === "approach") { cx *= 0.4; cy *= 0.4; cz *= 0.4; spread = 0.7; }
+      else if (phase === "explode") { spread = 2.5; }
+      else if (phase === "merge") { cx *= 0.15; cy *= 0.15; cz *= 0.15; spread = 0.4; }
+
+      // Gentle organic motion
+      const sx = Math.sin(t * p.speed + p.offset) * 0.08;
+      const sy = Math.cos(t * p.speed * 0.7 + p.offset * 1.3) * 0.08;
+      const sz = Math.sin(t * p.speed * 0.5 + p.offset * 0.7) * 0.05;
+
+      dummy.position.set(
+        p.x * spread + cx + sx,
+        p.y * spread + cy + sy,
+        p.z * spread + cz + sz,
       );
-    }
 
-    currentPos.current.lerp(target, 0.04);
-    meshRef.current.position.copy(currentPos.current);
+      // Breathing size
+      const breathe = 1 + Math.sin(t * 1.5 + i * 0.3) * 0.2;
+      dummy.scale.setScalar(p.size * breathe);
+      dummy.updateMatrix();
+      meshRef.current.setMatrixAt(i, dummy.matrix);
 
-    // Update trail
-    frameCount.current++;
-    if (frameCount.current % 3 === 0) {
-      trailPositions.current.pop();
-      trailPositions.current.unshift(currentPos.current.clone());
+      // Color — highlight active factor's particles
+      const isActive = activeFactor !== null && factors[p.factorIdx] === activeFactor;
+      const c = isActive ? highlightColor : baseColor;
+      meshRef.current.setColorAt(i, c);
     }
-    if (trailRef.current) {
-      for (let ti = 0; ti < TRAIL_LENGTH; ti++) {
-        const tp = trailPositions.current[ti];
-        trailDummy.position.copy(tp);
-        const fade = 1 - ti / TRAIL_LENGTH;
-        trailDummy.scale.setScalar(size * fade * 0.6);
-        trailDummy.updateMatrix();
-        trailRef.current.setMatrixAt(ti, trailDummy.matrix);
-      }
-      trailRef.current.instanceMatrix.needsUpdate = true;
-    }
-
-    const pulseScale = highlighted ? size * (1.2 + Math.sin(t * 4) * 0.15) : size;
-    meshRef.current.scale.setScalar(pulseScale);
+    meshRef.current.instanceMatrix.needsUpdate = true;
+    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
   });
 
+  // Hit-test spheres for factor particles (first N = factors.length)
   return (
     <group>
-      {/* Particle trail */}
-      <instancedMesh ref={trailRef} args={[undefined, undefined, TRAIL_LENGTH]}>
-        <sphereGeometry args={[1, 6, 6]} />
-        <meshBasicMaterial color={color} transparent opacity={0.2} />
+      <instancedMesh ref={meshRef} args={[undefined, undefined, particles.length]}>
+        <sphereGeometry args={[1, 8, 8]} />
+        <meshStandardMaterial
+          color={color} emissive={color} emissiveIntensity={0.8}
+          transparent opacity={0.6} depthWrite={false} blending={THREE.AdditiveBlending}
+        />
       </instancedMesh>
-      {/* Visible dot */}
-      <mesh
-        ref={meshRef}
-        position={position}
-        onPointerEnter={(e) => { e.stopPropagation(); document.body.style.cursor = "pointer"; onHover(factor); }}
-        onPointerLeave={(e) => { e.stopPropagation(); document.body.style.cursor = "auto"; onHover(null); }}
-        onClick={(e) => { e.stopPropagation(); onClick(factor); }}
-      >
-        <sphereGeometry args={[1, 12, 12]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={glowIntensity} transparent opacity={opacity} />
-      </mesh>
-      {/* Hit area */}
-      <mesh position={position} visible={false}
-        onPointerEnter={(e) => { e.stopPropagation(); document.body.style.cursor = "pointer"; onHover(factor); }}
-        onPointerLeave={(e) => { e.stopPropagation(); document.body.style.cursor = "auto"; onHover(null); }}
-        onClick={(e) => { e.stopPropagation(); onClick(factor); }}
-      >
-        <sphereGeometry args={[3, 8, 8]} />
-        <meshBasicMaterial transparent opacity={0} />
-      </mesh>
-      {highlighted && (
-        <mesh position={meshRef.current?.position.toArray() as [number, number, number] ?? position}>
-          <ringGeometry args={[1.6, 2.2, 24]} />
-          <meshBasicMaterial color={color} transparent opacity={0.5} side={THREE.DoubleSide} />
-        </mesh>
-      )}
+
+      {/* Invisible hit-test spheres for each factor */}
+      {factors.map((f, i) => {
+        const p = particles[i]; // first N particles are the factor cores
+        if (!p) return null;
+        return (
+          <mesh key={f} position={[p.x + center[0], p.y + center[1], p.z + center[2]]} visible={false}
+            onPointerEnter={(e) => { e.stopPropagation(); document.body.style.cursor = "pointer"; onHover(f); }}
+            onPointerLeave={(e) => { e.stopPropagation(); document.body.style.cursor = "auto"; onHover(null); }}
+            onClick={(e) => { e.stopPropagation(); onClick(f); }}
+          >
+            <sphereGeometry args={[0.25, 8, 8]} />
+            <meshBasicMaterial transparent opacity={0} />
+          </mesh>
+        );
+      })}
     </group>
   );
 }
@@ -175,43 +141,52 @@ function Tooltip3D({ text, position }: { text: string; position: [number, number
 }
 
 // ─── Connecting Arcs ───────────────────────────────────────
-function ConnectingArcs({
-  dotsA, dotsB, highlightedFactor, phase,
-}: {
-  dotsA: { pos: [number, number, number]; factor: string }[];
-  dotsB: { pos: [number, number, number]; factor: string }[];
-  highlightedFactor: string | null; phase: Phase;
+function ConnectingArcs({ factorsA, factorsB, centerA, centerB, activeFactor, phase }: {
+  factorsA: string[]; factorsB: string[];
+  centerA: [number, number, number]; centerB: [number, number, number];
+  activeFactor: string | null; phase: Phase;
 }) {
   const connections = useMemo(() => {
-    if (dotsA.length === 0 || dotsB.length === 0) return [];
-    const conns: { from: [number, number, number]; to: [number, number, number]; factorA: string; factorB: string }[] = [];
+    const hash = (s: string) => {
+      let h = 0;
+      for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+      return h;
+    };
+    const norm = (v: number) => ((Math.abs(v) % 1000) / 1000) * 2 - 1;
+    const getPos = (f: string, center: [number, number, number]): [number, number, number] => {
+      const h = hash(f);
+      return [norm(h) * 1.2 + center[0], norm(h >> 8) * 1.2 + center[1], norm(h >> 16) * 1.2 + center[2]];
+    };
+
+    const conns: { from: [number, number, number]; to: [number, number, number]; fA: string; fB: string }[] = [];
     const usedB = new Set<number>();
-    for (const a of dotsA) {
+    for (const fA of factorsA) {
+      const posA = getPos(fA, centerA);
       let bestDist = Infinity, bestIdx = 0;
-      for (let j = 0; j < dotsB.length; j++) {
+      for (let j = 0; j < factorsB.length; j++) {
         if (usedB.has(j)) continue;
-        const dx = a.pos[0] - dotsB[j].pos[0], dy = a.pos[1] - dotsB[j].pos[1], dz = a.pos[2] - dotsB[j].pos[2];
-        const dist = dx * dx + dy * dy + dz * dz;
-        if (dist < bestDist) { bestDist = dist; bestIdx = j; }
+        const posB = getPos(factorsB[j], centerB);
+        const d = (posA[0] - posB[0]) ** 2 + (posA[1] - posB[1]) ** 2 + (posA[2] - posB[2]) ** 2;
+        if (d < bestDist) { bestDist = d; bestIdx = j; }
       }
       usedB.add(bestIdx);
-      if (dotsB[bestIdx]) conns.push({ from: a.pos, to: dotsB[bestIdx].pos, factorA: a.factor, factorB: dotsB[bestIdx].factor });
+      conns.push({ from: posA, to: getPos(factorsB[bestIdx], centerB), fA, fB: factorsB[bestIdx] });
     }
     return conns;
-  }, [dotsA, dotsB]);
+  }, [factorsA, factorsB, centerA, centerB]);
 
   if (phase === "explode" || connections.length === 0) return null;
 
   return (
     <group>
       {connections.map((c, i) => {
-        const isHighlighted = highlightedFactor && (c.factorA === highlightedFactor || c.factorB === highlightedFactor);
-        const mid: [number, number, number] = [(c.from[0] + c.to[0]) / 2, (c.from[1] + c.to[1]) / 2 + 0.6, (c.from[2] + c.to[2]) / 2];
+        const isHl = activeFactor && (c.fA === activeFactor || c.fB === activeFactor);
+        const mid: [number, number, number] = [(c.from[0] + c.to[0]) / 2, (c.from[1] + c.to[1]) / 2 + 0.5, (c.from[2] + c.to[2]) / 2];
         return (
           <Line key={i} points={[c.from, mid, c.to]}
-            color={isHighlighted ? "#f59e0b" : "#6366f1"}
-            lineWidth={isHighlighted ? 2 : 0.8}
-            transparent opacity={isHighlighted ? 0.9 : (phase === "merge" ? 0.4 : 0.15)}
+            color={isHl ? "#f59e0b" : "#6366f1"}
+            lineWidth={isHl ? 2.5 : 0.8}
+            transparent opacity={isHl ? 0.9 : (phase === "merge" ? 0.35 : 0.12)}
           />
         );
       })}
@@ -219,106 +194,58 @@ function ConnectingArcs({
   );
 }
 
-// ─── Sub-Particle Cloud per Factor ─────────────────────────
-function SubParticleCloud({ center, color, count, phase }: {
-  center: [number, number, number]; color: string; count: number; phase: Phase;
-}) {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-  const offsets = useMemo(() =>
-    Array.from({ length: count }, (_, i) => {
-      const phi = Math.acos(2 * Math.random() - 1);
-      const theta = Math.random() * Math.PI * 2;
-      const r = 0.15 + Math.random() * 0.35;
-      return {
-        x: r * Math.sin(phi) * Math.cos(theta),
-        y: r * Math.sin(phi) * Math.sin(theta),
-        z: r * Math.cos(phi),
-        speed: 0.3 + Math.random() * 0.7,
-        phase: Math.random() * Math.PI * 2,
-      };
-    }), [count]);
-  const dummy = useMemo(() => new THREE.Object3D(), []);
-
+// ─── Theory Label ──────────────────────────────────────────
+function TheoryLabel({ text, position, color }: { text: string; position: [number, number, number]; color: string }) {
+  const ref = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
-    if (!meshRef.current) return;
-    const t = clock.elapsedTime;
-    for (let i = 0; i < count; i++) {
-      const o = offsets[i];
-      const scale = phase === "explode" ? 2.5 : phase === "approach" ? 0.6 : 1;
-      dummy.position.set(
-        center[0] + o.x * scale + Math.sin(t * o.speed + o.phase) * 0.05,
-        center[1] + o.y * scale + Math.cos(t * o.speed * 0.8 + o.phase) * 0.05,
-        center[2] + o.z * scale,
-      );
-      dummy.scale.setScalar(0.015 + Math.sin(t * 2 + i) * 0.005);
-      dummy.updateMatrix();
-      meshRef.current.setMatrixAt(i, dummy.matrix);
-    }
-    meshRef.current.instanceMatrix.needsUpdate = true;
+    if (ref.current) ref.current.position.y = position[1] + Math.sin(clock.elapsedTime * 0.8) * 0.08;
   });
-
   return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
-      <sphereGeometry args={[1, 6, 6]} />
-      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} transparent opacity={0.4} />
-    </instancedMesh>
+    <group ref={ref} position={position}>
+      <Text fontSize={0.18} color={color} anchorX="center" anchorY="middle" outlineWidth={0.008} outlineColor="#000000">
+        {text}
+      </Text>
+    </group>
   );
 }
 
 // ─── Collision Fireworks ───────────────────────────────────
 function CollisionFireworks({ active }: { active: boolean }) {
-  const COUNT = 60;
+  const COUNT = 80;
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
-
   const particles = useMemo(() =>
     Array.from({ length: COUNT }, () => {
       const phi = Math.acos(2 * Math.random() - 1);
       const theta = Math.random() * Math.PI * 2;
-      const speed = 0.5 + Math.random() * 2;
+      const speed = 0.5 + Math.random() * 2.5;
       return {
         dir: new THREE.Vector3(Math.sin(phi) * Math.cos(theta), Math.sin(phi) * Math.sin(theta), Math.cos(phi)).multiplyScalar(speed),
-        pos: new THREE.Vector3(0, 0, 0),
-        life: 0,
-        maxLife: 1 + Math.random() * 1.5,
-        colorMix: Math.random(),
+        pos: new THREE.Vector3(), life: 0, maxLife: 1 + Math.random() * 1.5, colorMix: Math.random(),
       };
     }), []);
 
-  const colorA = useMemo(() => new THREE.Color("#3b82f6"), []);
-  const colorB = useMemo(() => new THREE.Color("#a855f7"), []);
-  const colorC = useMemo(() => new THREE.Color("#ef4444"), []);
+  const cA = useMemo(() => new THREE.Color("#3b82f6"), []);
+  const cB = useMemo(() => new THREE.Color("#a855f7"), []);
+  const cC = useMemo(() => new THREE.Color("#ef4444"), []);
   const wasActive = useRef(false);
 
   useFrame((_, delta) => {
     if (!meshRef.current) return;
-
-    if (active && !wasActive.current) {
-      particles.forEach(p => { p.pos.set(0, 0, 0); p.life = 0; });
-      wasActive.current = true;
-    }
+    if (active && !wasActive.current) { particles.forEach(p => { p.pos.set(0, 0, 0); p.life = 0; }); wasActive.current = true; }
     if (!active) wasActive.current = false;
 
     for (let i = 0; i < COUNT; i++) {
       const p = particles[i];
       if (active || p.life < p.maxLife) {
-        p.life += delta;
-        p.pos.addScaledVector(p.dir, delta * 0.8);
-        p.pos.y -= delta * 0.3;
+        p.life += delta; p.pos.addScaledVector(p.dir, delta * 0.8); p.pos.y -= delta * 0.3;
         const fade = Math.max(0, 1 - p.life / p.maxLife);
-        dummy.position.copy(p.pos);
-        dummy.scale.setScalar(0.04 * fade);
-        dummy.updateMatrix();
+        dummy.position.copy(p.pos); dummy.scale.setScalar(0.04 * fade); dummy.updateMatrix();
         meshRef.current.setMatrixAt(i, dummy.matrix);
         const c = new THREE.Color();
-        if (p.colorMix < 0.5) c.lerpColors(colorA, colorB, p.colorMix * 2);
-        else c.lerpColors(colorB, colorC, (p.colorMix - 0.5) * 2);
+        if (p.colorMix < 0.5) c.lerpColors(cA, cB, p.colorMix * 2); else c.lerpColors(cB, cC, (p.colorMix - 0.5) * 2);
         meshRef.current.setColorAt(i, c);
-      } else {
-        dummy.scale.setScalar(0);
-        dummy.updateMatrix();
-        meshRef.current.setMatrixAt(i, dummy.matrix);
-      }
+      } else { dummy.scale.setScalar(0); dummy.updateMatrix(); meshRef.current.setMatrixAt(i, dummy.matrix); }
     }
     meshRef.current.instanceMatrix.needsUpdate = true;
     if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
@@ -327,27 +254,12 @@ function CollisionFireworks({ active }: { active: boolean }) {
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, COUNT]}>
       <sphereGeometry args={[1, 8, 8]} />
-      <meshStandardMaterial emissive="#ffffff" emissiveIntensity={1.5} transparent opacity={0.9} />
+      <meshStandardMaterial emissive="#ffffff" emissiveIntensity={1.5} transparent opacity={0.9} depthWrite={false} blending={THREE.AdditiveBlending} />
     </instancedMesh>
   );
 }
 
-// ─── Theory Label ──────────────────────────────────────────
-function TheoryLabel({ text, position, color }: { text: string; position: [number, number, number]; color: string }) {
-  const ref = useRef<THREE.Group>(null);
-  useFrame(({ clock }) => {
-    if (ref.current) ref.current.position.y = position[1] + Math.sin(clock.elapsedTime * 0.8) * 0.1;
-  });
-  return (
-    <group ref={ref} position={position}>
-      <Text fontSize={0.2} color={color} anchorX="center" anchorY="middle" outlineWidth={0.01} outlineColor="#000000">
-        {text}
-      </Text>
-    </group>
-  );
-}
-
-// ─── Main Scene ────────────────────────────────────────────
+// ─── Scene ─────────────────────────────────────────────────
 function Scene({
   theoryA, theoryB, phase, hoveredFactor, setHoveredFactor, clickedFactor, setClickedFactor,
 }: {
@@ -359,96 +271,81 @@ function Scene({
   const offsetB: [number, number, number] = phase === "idle" ? [2.2, 0, 0] : [0.8, 0, 0];
   const activeFactor = clickedFactor || hoveredFactor;
 
-  const dotsA = useMemo(() => {
-    if (!theoryA) return [];
-    return theoryA.factors.map((f, i) => {
-      const c = factorToCoords(f, i, theoryA.factors.length);
-      const pos: [number, number, number] = [c.x * 1.5 + offsetA[0], c.y * 1.5 + offsetA[1], c.z * 1.5 + offsetA[2]];
-      return { pos, factor: f, weight: c.weight, motion: c.motion };
-    });
-  }, [theoryA, offsetA[0]]);
+  // Compute particle count per theory (~200-300 per cloud)
+  const countA = theoryA ? Math.max(200, theoryA.factors.length * 40) : 0;
+  const countB = theoryB ? Math.max(200, theoryB.factors.length * 40) : 0;
 
-  const dotsB = useMemo(() => {
-    if (!theoryB) return [];
-    return theoryB.factors.map((f, i) => {
-      const c = factorToCoords(f, i, theoryB.factors.length);
-      const pos: [number, number, number] = [c.x * 1.5 + offsetB[0], c.y * 1.5 + offsetB[1], c.z * 1.5 + offsetB[2]];
-      return { pos, factor: f, weight: c.weight, motion: c.motion };
-    });
-  }, [theoryB, offsetB[0]]);
-
-  const tooltipDot = useMemo(() => {
+  // Tooltip position
+  const tooltipInfo = useMemo(() => {
     if (!activeFactor) return null;
-    return [...dotsA, ...dotsB].find(d => d.factor === activeFactor) ?? null;
-  }, [activeFactor, dotsA, dotsB]);
+    const hash = (s: string) => { let h = 0; for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0; return h; };
+    const norm = (v: number) => ((Math.abs(v) % 1000) / 1000) * 2 - 1;
+
+    // Check theory A factors
+    if (theoryA?.factors.includes(activeFactor)) {
+      const h = hash(activeFactor);
+      return { text: activeFactor, pos: [norm(h) * 1.2 + offsetA[0], norm(h >> 8) * 1.2 + offsetA[1] + 0.35, norm(h >> 16) * 1.2 + offsetA[2]] as [number, number, number] };
+    }
+    if (theoryB?.factors.includes(activeFactor)) {
+      const h = hash(activeFactor);
+      return { text: activeFactor, pos: [norm(h) * 1.2 + offsetB[0], norm(h >> 8) * 1.2 + offsetB[1] + 0.35, norm(h >> 16) * 1.2 + offsetB[2]] as [number, number, number] };
+    }
+    return null;
+  }, [activeFactor, theoryA, theoryB, offsetA, offsetB]);
 
   return (
     <>
-      <ambientLight intensity={0.3} />
-      <pointLight position={[5, 5, 5]} intensity={0.8} />
-      <pointLight position={[-5, -5, -5]} intensity={0.4} color="#6366f1" />
+      <ambientLight intensity={0.15} />
+      <pointLight position={[5, 5, 5]} intensity={0.6} />
+      <pointLight position={[-5, -3, -5]} intensity={0.3} color="#6366f1" />
 
-      {/* Star field background */}
-      <Stars radius={50} depth={40} count={1500} factor={3} saturation={0.1} fade speed={0.5} />
+      <Stars radius={60} depth={50} count={2000} factor={3} saturation={0.1} fade speed={0.3} />
 
-      {/* Theory A */}
+      {/* Theory A — Blue Nebula */}
       {theoryA && (
         <>
-          <TheoryLabel text={theoryA.name} position={[offsetA[0], 2.3, 0]} color="#60a5fa" />
-          {dotsA.map((d, i) => (
-            <group key={`a-${i}`}>
-              <FactorDot position={d.pos} targetPosition={d.pos}
-                color="#3b82f6" size={0.06 + d.weight * 0.08} factor={d.factor}
-                opacity={0.7 + d.weight * 0.3} highlighted={activeFactor === d.factor}
-                onHover={setHoveredFactor} onClick={setClickedFactor}
-                phase={phase} motion={d.motion}
-              />
-              <SubParticleCloud center={d.pos} color="#3b82f6" count={15} phase={phase} />
-            </group>
-          ))}
+          <TheoryLabel text={theoryA.name} position={[offsetA[0], 2.0, 0]} color="#60a5fa" />
+          <NebulaCloud center={offsetA} color="#3b82f6" count={countA} phase={phase}
+            factors={theoryA.factors} activeFactor={activeFactor}
+            onHover={setHoveredFactor} onClick={setClickedFactor}
+          />
         </>
       )}
 
-      {/* Theory B */}
+      {/* Theory B — Red Nebula */}
       {theoryB && (
         <>
-          <TheoryLabel text={theoryB.name} position={[offsetB[0], 2.3, 0]} color="#f87171" />
-          {dotsB.map((d, i) => (
-            <group key={`b-${i}`}>
-              <FactorDot position={d.pos} targetPosition={d.pos}
-                color="#ef4444" size={0.06 + d.weight * 0.08} factor={d.factor}
-                opacity={0.7 + d.weight * 0.3} highlighted={activeFactor === d.factor}
-                onHover={setHoveredFactor} onClick={setClickedFactor}
-                phase={phase} motion={d.motion}
-              />
-              <SubParticleCloud center={d.pos} color="#ef4444" count={15} phase={phase} />
-            </group>
-          ))}
+          <TheoryLabel text={theoryB.name} position={[offsetB[0], 2.0, 0]} color="#f87171" />
+          <NebulaCloud center={offsetB} color="#ef4444" count={countB} phase={phase}
+            factors={theoryB.factors} activeFactor={activeFactor}
+            onHover={setHoveredFactor} onClick={setClickedFactor}
+          />
         </>
       )}
 
       {/* Connecting arcs */}
       {theoryA && theoryB && (
-        <ConnectingArcs dotsA={dotsA} dotsB={dotsB} highlightedFactor={activeFactor} phase={phase} />
+        <ConnectingArcs
+          factorsA={theoryA.factors} factorsB={theoryB.factors}
+          centerA={offsetA} centerB={offsetB}
+          activeFactor={activeFactor} phase={phase}
+        />
       )}
 
       {/* Tooltip */}
-      {activeFactor && tooltipDot && (
-        <Tooltip3D text={activeFactor} position={[tooltipDot.pos[0], tooltipDot.pos[1] + 0.3, tooltipDot.pos[2]]} />
-      )}
+      {tooltipInfo && <Tooltip3D text={tooltipInfo.text} position={tooltipInfo.pos} />}
 
       {/* Merge glow */}
       {phase === "merge" && (
         <mesh position={[0, 0, 0]}>
-          <sphereGeometry args={[0.8, 32, 32]} />
-          <meshStandardMaterial color="#a855f7" emissive="#a855f7" emissiveIntensity={1.5} transparent opacity={0.25} />
+          <sphereGeometry args={[0.6, 32, 32]} />
+          <meshStandardMaterial color="#a855f7" emissive="#a855f7" emissiveIntensity={2} transparent opacity={0.2} depthWrite={false} blending={THREE.AdditiveBlending} />
         </mesh>
       )}
 
-      {/* Fireworks on explode/merge */}
       <CollisionFireworks active={phase === "explode"} />
 
-      <OrbitControls enablePan={false} enableZoom minDistance={4} maxDistance={12} autoRotate autoRotateSpeed={0.4} />
+      <OrbitControls enablePan={false} enableZoom minDistance={4} maxDistance={12} autoRotate autoRotateSpeed={0.3} />
     </>
   );
 }
@@ -493,7 +390,7 @@ export default function TheoryParticles3D({
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden bg-black/30 border border-border/30 relative">
-      <Canvas camera={{ position: [0, 2, 7], fov: 50 }} style={{ background: "transparent" }}>
+      <Canvas camera={{ position: [0, 1.5, 6], fov: 50 }} style={{ background: "transparent" }}>
         <Scene
           theoryA={theoryA} theoryB={theoryB} phase={phase}
           hoveredFactor={hoveredFactor} setHoveredFactor={setHoveredFactor}
@@ -501,7 +398,7 @@ export default function TheoryParticles3D({
         />
       </Canvas>
 
-      {/* Legend overlay */}
+      {/* Legend */}
       <div className="absolute bottom-3 left-3 flex items-center gap-4 pointer-events-none">
         {theoryA && (
           <div className="flex items-center gap-1.5">
