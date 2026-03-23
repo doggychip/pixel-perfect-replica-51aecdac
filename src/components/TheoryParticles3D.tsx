@@ -408,6 +408,7 @@ function Scene({
               onHover={setHoveredFactor}
               onClick={setClickedFactor}
               phase={phase}
+              motion={d.motion}
             />
           ))}
         </>
