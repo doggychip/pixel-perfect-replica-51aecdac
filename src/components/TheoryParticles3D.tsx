@@ -123,22 +123,43 @@ function FactorDot({
   });
 
   return (
-    <mesh
-      ref={meshRef}
-      position={position}
-      onPointerEnter={(e) => { e.stopPropagation(); onHover(factor); }}
-      onPointerLeave={(e) => { e.stopPropagation(); onHover(null); }}
-      onClick={(e) => { e.stopPropagation(); onClick(factor); }}
-    >
-      <sphereGeometry args={[1, 12, 12]} />
-      <meshStandardMaterial
-        color={color}
-        emissive={color}
-        emissiveIntensity={glowIntensity}
-        transparent
-        opacity={opacity}
-      />
-    </mesh>
+    <group>
+      {/* Visible dot */}
+      <mesh
+        ref={meshRef}
+        position={position}
+        onPointerEnter={(e) => { e.stopPropagation(); document.body.style.cursor = "pointer"; onHover(factor); }}
+        onPointerLeave={(e) => { e.stopPropagation(); document.body.style.cursor = "auto"; onHover(null); }}
+        onClick={(e) => { e.stopPropagation(); onClick(factor); }}
+      >
+        <sphereGeometry args={[1, 12, 12]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={glowIntensity}
+          transparent
+          opacity={opacity}
+        />
+      </mesh>
+      {/* Larger invisible hit area for easier clicking */}
+      <mesh
+        position={position}
+        visible={false}
+        onPointerEnter={(e) => { e.stopPropagation(); document.body.style.cursor = "pointer"; onHover(factor); }}
+        onPointerLeave={(e) => { e.stopPropagation(); document.body.style.cursor = "auto"; onHover(null); }}
+        onClick={(e) => { e.stopPropagation(); onClick(factor); }}
+      >
+        <sphereGeometry args={[3, 8, 8]} />
+        <meshBasicMaterial transparent opacity={0} />
+      </mesh>
+      {/* Highlight ring when selected */}
+      {highlighted && (
+        <mesh ref={meshRef} position={position}>
+          <ringGeometry args={[1.6, 2.2, 24]} />
+          <meshBasicMaterial color={color} transparent opacity={0.5} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+    </group>
   );
 }
 
