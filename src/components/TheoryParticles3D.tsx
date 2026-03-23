@@ -86,6 +86,7 @@ function FactorDot({
   onClick,
   phase,
   targetPosition,
+  motion = "jitter",
 }: {
   position: [number, number, number];
   color: string;
@@ -97,6 +98,7 @@ function FactorDot({
   onClick: (factor: string) => void;
   phase: Phase;
   targetPosition: [number, number, number];
+  motion?: MotionPattern;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const currentPos = useRef(new THREE.Vector3(...position));
