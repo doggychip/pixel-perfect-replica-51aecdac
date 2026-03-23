@@ -75,21 +75,32 @@ function FactorDot({
   color,
   importance,
   visible,
+  highlighted,
+  dimmed,
+  onSelect,
+  theoryKey,
+  factorIndex,
 }: {
   factor: string;
   position: THREE.Vector3;
   color: string;
   importance: number;
   visible: boolean;
+  highlighted: boolean;
+  dimmed: boolean;
+  onSelect: (key: string, idx: number) => void;
+  theoryKey: "A" | "B";
+  factorIndex: number;
 }) {
   const [hovered, setHovered] = useState(false);
   const meshRef = useRef<THREE.Mesh>(null);
   const baseSize = 0.06 + importance * 0.12;
+  const active = highlighted || hovered;
 
   useFrame(({ clock }) => {
     if (!meshRef.current) return;
     const t = clock.getElapsedTime();
-    const pulse = hovered ? 1.4 : 1 + Math.sin(t * 2 + hashStr(factor)) * 0.05;
+    const pulse = active ? 1.6 : 1 + Math.sin(t * 2 + hashStr(factor)) * 0.05;
     meshRef.current.scale.setScalar(pulse);
   });
 
@@ -101,33 +112,41 @@ function FactorDot({
         ref={meshRef}
         onPointerOver={(e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); setHovered(true); }}
         onPointerOut={() => setHovered(false)}
+        onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onSelect(theoryKey, factorIndex); }}
       >
         <sphereGeometry args={[baseSize, 12, 8]} />
         <meshBasicMaterial
-          color={color}
+          color={highlighted ? "#facc15" : color}
           transparent
-          opacity={0.3 + importance * 0.6}
+          opacity={dimmed ? 0.12 : (0.3 + importance * 0.6)}
         />
       </mesh>
       {/* Glow ring */}
       <mesh rotation={[Math.PI / 2, 0, 0]}>
         <ringGeometry args={[baseSize * 1.2, baseSize * 1.5, 16]} />
-        <meshBasicMaterial color={color} transparent opacity={hovered ? 0.4 : 0.08} side={THREE.DoubleSide} />
+        <meshBasicMaterial color={highlighted ? "#facc15" : color} transparent opacity={active ? 0.5 : dimmed ? 0.02 : 0.08} side={THREE.DoubleSide} />
       </mesh>
-      {/* Tooltip on hover */}
-      {hovered && (
+      {/* Highlight outer ring */}
+      {highlighted && (
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[baseSize * 1.8, baseSize * 2.2, 24]} />
+          <meshBasicMaterial color="#facc15" transparent opacity={0.3} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+      {/* Tooltip on hover or highlight */}
+      {(hovered || highlighted) && (
         <Html distanceFactor={8} center style={{ pointerEvents: "none" }}>
           <div style={{
             background: "rgba(15, 23, 42, 0.95)",
-            border: `1px solid ${color}40`,
+            border: `1px solid ${highlighted ? "#facc15" : color}40`,
             borderRadius: 6,
             padding: "4px 10px",
             whiteSpace: "nowrap",
             fontSize: 11,
             color: "#e2e8f0",
-            boxShadow: `0 0 12px ${color}30`,
+            boxShadow: `0 0 12px ${highlighted ? "#facc15" : color}30`,
           }}>
-            <span style={{ color, fontWeight: 600 }}>{factor}</span>
+            <span style={{ color: highlighted ? "#facc15" : color, fontWeight: 600 }}>{factor}</span>
             <span style={{ color: "#94a3b8", marginLeft: 6, fontSize: 10 }}>
               w={importance.toFixed(2)}
             </span>
@@ -146,6 +165,8 @@ function ConnectingLines({
   positionsB,
   phase,
   phaseTime,
+  highlightedFactor,
+  connections,
 }: {
   theoryA: CollisionTheory;
   theoryB: CollisionTheory;
@@ -153,33 +174,14 @@ function ConnectingLines({
   positionsB: THREE.Vector3[];
   phase: string;
   phaseTime: number;
+  highlightedFactor: { key: string; idx: number } | null;
+  connections: { fromIdx: number; toIdx: number; strength: number }[];
 }) {
-  // Find connections: pair each factor in A with nearest factor in B
-  const connections = useMemo(() => {
-    const conns: { fromIdx: number; toIdx: number; strength: number }[] = [];
-    theoryA.factors.forEach((fA, i) => {
-      let bestJ = 0;
-      let bestScore = 0;
-      theoryB.factors.forEach((fB, j) => {
-        // Simple similarity: shared words or character overlap
-        const wordsA = new Set(fA.toLowerCase().split(/\s+/));
-        const wordsB = new Set(fB.toLowerCase().split(/\s+/));
-        let shared = 0;
-        wordsA.forEach(w => { if (wordsB.has(w)) shared++; });
-        const charOverlap = [...fA.toLowerCase()].filter(c => fB.toLowerCase().includes(c)).length / Math.max(fA.length, fB.length);
-        const score = shared * 0.6 + charOverlap * 0.4;
-        if (score > bestScore) { bestScore = score; bestJ = j; }
-      });
-      conns.push({ fromIdx: i, toIdx: bestJ, strength: Math.min(1, bestScore + 0.3) });
-    });
-    return conns;
-  }, [theoryA, theoryB]);
-
   const showLines = phase === "idle" || phase === "approach";
   const mergeShow = phase === "merge" && phaseTime > 1.0;
   if (!showLines && !mergeShow) return null;
 
-  const opacity = mergeShow ? Math.min((phaseTime - 1.0) / 1.0, 0.5) : 0.15;
+  const baseOpacity = mergeShow ? Math.min((phaseTime - 1.0) / 1.0, 0.5) : 0.15;
 
   return (
     <group>
@@ -187,7 +189,6 @@ function ConnectingLines({
         if (!positionsA[c.fromIdx] || !positionsB[c.toIdx]) return null;
         const from = positionsA[c.fromIdx];
         const to = positionsB[c.toIdx];
-        // Create a curved arc through a midpoint above
         const mid = new THREE.Vector3(
           (from.x + to.x) / 2,
           (from.y + to.y) / 2 + 0.8,
@@ -195,14 +196,20 @@ function ConnectingLines({
         );
         const curve = new THREE.QuadraticBezierCurve3(from, mid, to);
         const points = curve.getPoints(16);
+
+        const isHighlighted = highlightedFactor &&
+          ((highlightedFactor.key === "A" && highlightedFactor.idx === c.fromIdx) ||
+           (highlightedFactor.key === "B" && highlightedFactor.idx === c.toIdx));
+        const isDimmed = highlightedFactor && !isHighlighted;
+
         return (
           <Line
             key={i}
             points={points}
-            color={mergeShow ? "#a855f7" : "#94a3b8"}
-            lineWidth={1 + c.strength}
+            color={isHighlighted ? "#facc15" : mergeShow ? "#a855f7" : "#94a3b8"}
+            lineWidth={isHighlighted ? 3 : 1 + c.strength}
             transparent
-            opacity={opacity * c.strength}
+            opacity={isDimmed ? 0.03 : isHighlighted ? 0.8 : baseOpacity * c.strength}
           />
         );
       })}
@@ -218,6 +225,9 @@ function ParticleCloud({
   phase,
   phaseTime,
   onFactorPositions,
+  theoryKey,
+  highlightedFactor,
+  onSelectFactor,
 }: {
   theory: CollisionTheory;
   position: [number, number, number];
@@ -225,6 +235,9 @@ function ParticleCloud({
   phase: "idle" | "approach" | "explode" | "merge";
   phaseTime: number;
   onFactorPositions?: (positions: THREE.Vector3[]) => void;
+  theoryKey: "A" | "B";
+  highlightedFactor: { key: string; idx: number } | null;
+  onSelectFactor: (key: string, idx: number) => void;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const factorCount = theory.factors.length;
@@ -360,16 +373,25 @@ function ParticleCloud({
         <pointsMaterial color={threeColor} size={0.06} sizeAttenuation transparent opacity={0.5} />
       </points>
       {/* Factor dots with hover tooltips */}
-      {theory.factors.map((f, i) => (
-        <FactorDot
-          key={f}
-          factor={f}
-          position={factorPositions[i]}
-          color={color}
-          importance={factorImportances[i]}
-          visible={showDots}
-        />
-      ))}
+      {theory.factors.map((f, i) => {
+        const isHighlighted = highlightedFactor?.key === theoryKey && highlightedFactor?.idx === i;
+        const hasHighlight = highlightedFactor !== null;
+        return (
+          <FactorDot
+            key={f}
+            factor={f}
+            position={factorPositions[i]}
+            color={color}
+            importance={factorImportances[i]}
+            visible={showDots}
+            highlighted={isHighlighted}
+            dimmed={hasHighlight && !isHighlighted}
+            onSelect={onSelectFactor}
+            theoryKey={theoryKey}
+            factorIndex={i}
+          />
+        );
+      })}
       {/* Theory label */}
       {showDots && (
         <Billboard follow lockX={false} lockY={false} lockZ={false}>
@@ -461,11 +483,40 @@ function ColliderScene({
   const collidingRef = useRef(false);
   const [positionsA, setPositionsA] = useState<THREE.Vector3[]>([]);
   const [positionsB, setPositionsB] = useState<THREE.Vector3[]>([]);
+  const [highlightedFactor, setHighlightedFactor] = useState<{ key: string; idx: number } | null>(null);
+
+  const handleSelectFactor = useCallback((key: string, idx: number) => {
+    setHighlightedFactor(prev =>
+      prev?.key === key && prev?.idx === idx ? null : { key, idx }
+    );
+  }, []);
+
+  // Compute connections for highlight linking
+  const connections = useMemo(() => {
+    if (!theoryA || !theoryB) return [];
+    const conns: { fromIdx: number; toIdx: number; strength: number }[] = [];
+    theoryA.factors.forEach((fA, i) => {
+      let bestJ = 0;
+      let bestScore = 0;
+      theoryB.factors.forEach((fB, j) => {
+        const wordsA = new Set(fA.toLowerCase().split(/\s+/));
+        const wordsB = new Set(fB.toLowerCase().split(/\s+/));
+        let shared = 0;
+        wordsA.forEach(w => { if (wordsB.has(w)) shared++; });
+        const charOverlap = [...fA.toLowerCase()].filter(c => fB.toLowerCase().includes(c)).length / Math.max(fA.length, fB.length);
+        const score = shared * 0.6 + charOverlap * 0.4;
+        if (score > bestScore) { bestScore = score; bestJ = j; }
+      });
+      conns.push({ fromIdx: i, toIdx: bestJ, strength: Math.min(1, bestScore + 0.3) });
+    });
+    return conns;
+  }, [theoryA, theoryB]);
 
   useEffect(() => {
     if (colliding && !collidingRef.current) {
       collidingRef.current = true;
       setPhase("approach");
+      setHighlightedFactor(null);
       phaseStartRef.current = performance.now();
     }
     if (!colliding && collidingRef.current) {
@@ -500,10 +551,10 @@ function ColliderScene({
       <OrbitControls enablePan={false} maxDistance={14} minDistance={4} />
       <Axes />
       {theoryA && (
-        <ParticleCloud theory={theoryA} position={[-3, 0, 0]} color={colorA} phase={phase} phaseTime={phaseTime} onFactorPositions={handlePositionsA} />
+        <ParticleCloud theory={theoryA} position={[-3, 0, 0]} color={colorA} phase={phase} phaseTime={phaseTime} onFactorPositions={handlePositionsA} theoryKey="A" highlightedFactor={highlightedFactor} onSelectFactor={handleSelectFactor} />
       )}
       {theoryB && (
-        <ParticleCloud theory={theoryB} position={[3, 0, 0]} color={colorB} phase={phase} phaseTime={phaseTime} onFactorPositions={handlePositionsB} />
+        <ParticleCloud theory={theoryB} position={[3, 0, 0]} color={colorB} phase={phase} phaseTime={phaseTime} onFactorPositions={handlePositionsB} theoryKey="B" highlightedFactor={highlightedFactor} onSelectFactor={handleSelectFactor} />
       )}
       {theoryA && theoryB && positionsA.length > 0 && positionsB.length > 0 && (
         <ConnectingLines
@@ -513,6 +564,8 @@ function ColliderScene({
           positionsB={positionsB}
           phase={phase}
           phaseTime={phaseTime}
+          highlightedFactor={highlightedFactor}
+          connections={connections}
         />
       )}
       <CollisionFlash phase={phase} phaseTime={phaseTime} />
