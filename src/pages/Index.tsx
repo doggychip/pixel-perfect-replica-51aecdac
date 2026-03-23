@@ -8,7 +8,7 @@ import { CollisionHistory } from "@/components/CollisionHistory";
 
 const Index = () => {
   const [selected, setSelected] = useState<Theory[]>([]);
-  const [apiKey, setApiKey] = useState("");
+  
   const [history, setHistory] = useState<CollisionResult[]>([]);
   const [currentResult, setCurrentResult] = useState<CollisionResult | null>(null);
   const [isColliding, setIsColliding] = useState(false);
