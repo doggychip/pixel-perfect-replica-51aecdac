@@ -389,7 +389,6 @@ function Scene({
       {/* Theory A */}
       {theoryA && (
         <>
-          <AmbientParticles count={theoryA.factors.length * 8 + 15} color="#3b82f6" center={offsetA} phase={phase} />
           <TheoryLabel text={theoryA.name} position={[offsetA[0], 2.3, 0]} color="#60a5fa" />
           {dotsA.map((d, i) => (
             <FactorDot key={`a-${i}`} position={d.pos} targetPosition={d.pos}
