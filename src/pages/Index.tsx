@@ -3,10 +3,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Zap, Shuffle, ChevronRight, Star, Clock, Link2, Atom,
-  Sparkles, ArrowRight, X, History, AlertTriangle,
+  Sparkles, ArrowRight, X, History, AlertTriangle, BookOpen,
 } from "lucide-react";
 import {
   THEORIES, DOMAINS, COLLISION_MODES, DOMAIN_COLORS, DOMAIN_CLASSES,
@@ -214,6 +215,8 @@ export default function CollisionEnginePage() {
   });
   const [viewingResult, setViewingResult] = useState<CollisionResult | null>(null);
   const [error, setError] = useState("");
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
 
   const selectedTheories = useMemo(
@@ -321,9 +324,13 @@ export default function CollisionEnginePage() {
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
       <header className="border-b border-border/50 px-4 md:px-6 py-3 flex items-center justify-between shrink-0 glass">
-        <div>
+        <div className="flex items-center gap-2 md:gap-0 md:block">
+          {/* Mobile: Library drawer trigger */}
+          <Button variant="ghost" size="sm" className="md:hidden p-1.5" onClick={() => setLibraryOpen(true)}>
+            <BookOpen className="w-4 h-4 text-primary" />
+          </Button>
           <div className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-primary" />
+            <Zap className="w-5 h-5 text-primary hidden md:block" />
             <h1 className="font-display text-base md:text-lg font-bold text-primary neon-text tracking-wider">
               Theory Collision Engine
             </h1>
@@ -333,7 +340,136 @@ export default function CollisionEnginePage() {
             Select 2 theories from different domains, pick a collision mode, and discover novel frameworks
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          {/* Mobile: Random Pair */}
+          <Button variant="neon" size="sm" className="md:hidden text-[10px] gap-1" onClick={handleRandomPair}>
+            <Shuffle className="w-3 h-3" />
+          </Button>
+          {/* Mobile: History drawer trigger */}
+          <Button variant="ghost" size="sm" className="md:hidden p-1.5 relative" onClick={() => setHistoryOpen(true)}>
+            <History className="w-4 h-4 text-primary" />
+            {history.length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-primary text-[8px] text-primary-foreground flex items-center justify-center font-bold">
+                {history.length}
+              </span>
+            )}
+          </Button>
+        </div>
       </header>
+
+      {/* Mobile: Theory Library Sheet */}
+      <Sheet open={libraryOpen} onOpenChange={setLibraryOpen}>
+        <SheetContent side="left" className="w-[300px] p-0 bg-card border-border/50 flex flex-col">
+          <SheetHeader className="p-3 border-b border-border/50">
+            <SheetTitle className="font-display text-xs font-bold uppercase tracking-widest text-primary neon-text">
+              Theory Library
+            </SheetTitle>
+          </SheetHeader>
+          <div className="p-3 border-b border-border/50 space-y-2">
+            <Button variant="neon" size="sm" onClick={() => { handleRandomPair(); setLibraryOpen(false); }} className="w-full text-[10px] gap-1">
+              <Shuffle className="w-3 h-3" />
+              Random Pair
+            </Button>
+            <div className="flex flex-wrap gap-1">
+              {DOMAINS.map(d => {
+                const dc = DOMAIN_CLASSES[d];
+                const isActive = activeDomain === d;
+                const count = getTheoriesByDomain(d).length;
+                const hasSelected = selectedIds.some(id => THEORIES.find(t => t.id === id)?.domain === d);
+                return (
+                  <button
+                    key={d}
+                    onClick={() => setActiveDomain(d)}
+                    className={`px-2 py-1 rounded text-[9px] font-medium transition-colors flex items-center gap-1 ${
+                      isActive
+                        ? `${dc.bg} ${dc.text} ${dc.border} border`
+                        : "text-muted-foreground hover:text-foreground bg-muted/30 hover:bg-muted/50"
+                    }`}
+                  >
+                    {d.split(" ").map(w => w[0]).join("")}
+                    <span className="opacity-60">{count}</span>
+                    {hasSelected && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="p-3 space-y-2">
+              {domainTheories.map(t => (
+                <TheoryCard
+                  key={t.id}
+                  theory={t}
+                  selected={selectedIds.includes(t.id)}
+                  disabled={selectedIds.length >= 2 && !selectedIds.includes(t.id)}
+                  onSelect={() => handleSelect(t.id)}
+                />
+              ))}
+            </div>
+          </ScrollArea>
+          {selectedIds.length > 0 && (
+            <div className="p-3 border-t border-border/50 space-y-1.5">
+              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+                Selected ({selectedIds.length}/2)
+              </span>
+              <div className="space-y-1">
+                {selectedTheories.map(t => (
+                  <div key={t.id} className="flex items-center justify-between px-2 py-1 rounded bg-card/50 border border-border/50">
+                    <span className={`text-xs font-medium ${DOMAIN_CLASSES[t.domain as DomainKey]?.text ?? "text-foreground"}`}>
+                      {t.name}
+                    </span>
+                    <button onClick={() => handleSelect(t.id)} className="text-muted-foreground hover:text-foreground">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Mobile: History Sheet */}
+      <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
+        <SheetContent side="right" className="w-[300px] p-0 bg-card border-border/50 flex flex-col">
+          <SheetHeader className="p-3 border-b border-border/50">
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-primary" />
+              <SheetTitle className="font-display text-xs font-bold uppercase tracking-widest text-primary neon-text">
+                Collision History
+              </SheetTitle>
+              <Badge variant="secondary" className="text-[9px] ml-auto">{history.length}</Badge>
+            </div>
+          </SheetHeader>
+          <ScrollArea className="flex-1">
+            {history.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-8 gap-3">
+                <Clock className="w-10 h-10 text-muted-foreground/30" />
+                <p className="text-xs text-muted-foreground font-mono text-center">No collisions yet</p>
+              </div>
+            ) : (
+              <div className="p-3 space-y-2">
+                {history.map(r => (
+                  <div key={r.id}>
+                    <ResultCard
+                      result={r}
+                      compact
+                      onClick={() => { setViewingResult(r); setHistoryOpen(false); }}
+                    />
+                    <button
+                      onClick={() => { handleChainCollide(r); setHistoryOpen(false); }}
+                      className="w-full mt-1 flex items-center justify-center gap-1 text-[9px] text-muted-foreground hover:text-primary transition-colors py-1"
+                    >
+                      <Link2 className="w-3 h-3" />
+                      Chain Collide
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
 
       {/* Three-panel layout */}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-[280px_1fr_260px] overflow-hidden">
