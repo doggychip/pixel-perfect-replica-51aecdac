@@ -133,6 +133,26 @@ function FactorDot({
     currentPos.current.lerp(target, 0.04);
     meshRef.current.position.copy(currentPos.current);
 
+    // Update trail every 3 frames
+    frameCount.current++;
+    if (frameCount.current % 3 === 0) {
+      trailPositions.current.pop();
+      trailPositions.current.unshift(currentPos.current.clone());
+    }
+
+    // Render trail
+    if (trailRef.current) {
+      for (let ti = 0; ti < TRAIL_LENGTH; ti++) {
+        const tp = trailPositions.current[ti];
+        trailDummy.position.copy(tp);
+        const fade = 1 - ti / TRAIL_LENGTH;
+        trailDummy.scale.setScalar(size * fade * 0.7);
+        trailDummy.updateMatrix();
+        trailRef.current.setMatrixAt(ti, trailDummy.matrix);
+      }
+      trailRef.current.instanceMatrix.needsUpdate = true;
+    }
+
     const pulseScale = highlighted ? size * (1.2 + Math.sin(t * 4) * 0.15) : size;
     meshRef.current.scale.setScalar(pulseScale);
   });
