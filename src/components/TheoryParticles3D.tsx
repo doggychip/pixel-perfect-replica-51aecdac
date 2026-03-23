@@ -62,6 +62,15 @@ function FactorDot({
   const currentPos = useRef(new THREE.Vector3(...position));
   const glowIntensity = highlighted ? 2.0 : 0.6;
 
+  // Trail history
+  const TRAIL_LENGTH = 12;
+  const trailRef = useRef<THREE.InstancedMesh>(null);
+  const trailPositions = useRef<THREE.Vector3[]>(
+    Array.from({ length: TRAIL_LENGTH }, () => new THREE.Vector3(...position))
+  );
+  const trailDummy = useMemo(() => new THREE.Object3D(), []);
+  const frameCount = useRef(0);
+
   useFrame(({ clock }) => {
     if (!meshRef.current) return;
     const t = clock.elapsedTime;
