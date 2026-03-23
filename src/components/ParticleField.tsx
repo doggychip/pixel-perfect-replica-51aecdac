@@ -265,9 +265,7 @@ function ConnectionLines({
   }, []);
 
   return (
-    <line ref={ref as any} geometry={points}>
-      <lineBasicMaterial color="#ffffff" transparent opacity={0.15} blending={THREE.AdditiveBlending} />
-    </line>
+    <primitive object={new THREE.Line(points, new THREE.LineBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending }))} ref={ref} />
   );
 }
 
