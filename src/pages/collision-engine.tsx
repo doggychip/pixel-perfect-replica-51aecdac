@@ -32,30 +32,6 @@ interface CollisionResult {
   timestamp: number;
 }
 
-// ─── Collision Animation ─────────────────────────────────────
-function CollisionAnimation({ colorA, colorB }: { colorA: string; colorB: string }) {
-  return (
-    <div className="flex items-center justify-center py-12">
-      <div className="relative w-40 h-40">
-        {/* Circle A */}
-        <div
-          className="absolute w-16 h-16 rounded-full animate-collision-left"
-          style={{ background: `radial-gradient(circle, ${colorA}60, ${colorA}20)`, border: `2px solid ${colorA}`, boxShadow: `0 0 20px ${colorA}40` }}
-        />
-        {/* Circle B */}
-        <div
-          className="absolute right-0 w-16 h-16 rounded-full animate-collision-right"
-          style={{ background: `radial-gradient(circle, ${colorB}60, ${colorB}20)`, border: `2px solid ${colorB}`, boxShadow: `0 0 20px ${colorB}40` }}
-        />
-        {/* Center flash */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-8 h-8 rounded-full animate-collision-flash bg-white/0" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Score Badge ─────────────────────────────────────────────
 function ScoreBadge({ score }: { score: number }) {
   const color = score >= 8 ? "text-emerald-400 border-emerald-400/30 bg-emerald-400/10"
