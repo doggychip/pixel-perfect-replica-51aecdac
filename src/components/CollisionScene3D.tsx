@@ -165,6 +165,8 @@ function ConnectingLines({
   positionsB,
   phase,
   phaseTime,
+  highlightedFactor,
+  connections,
 }: {
   theoryA: CollisionTheory;
   theoryB: CollisionTheory;
@@ -172,33 +174,14 @@ function ConnectingLines({
   positionsB: THREE.Vector3[];
   phase: string;
   phaseTime: number;
+  highlightedFactor: { key: string; idx: number } | null;
+  connections: { fromIdx: number; toIdx: number; strength: number }[];
 }) {
-  // Find connections: pair each factor in A with nearest factor in B
-  const connections = useMemo(() => {
-    const conns: { fromIdx: number; toIdx: number; strength: number }[] = [];
-    theoryA.factors.forEach((fA, i) => {
-      let bestJ = 0;
-      let bestScore = 0;
-      theoryB.factors.forEach((fB, j) => {
-        // Simple similarity: shared words or character overlap
-        const wordsA = new Set(fA.toLowerCase().split(/\s+/));
-        const wordsB = new Set(fB.toLowerCase().split(/\s+/));
-        let shared = 0;
-        wordsA.forEach(w => { if (wordsB.has(w)) shared++; });
-        const charOverlap = [...fA.toLowerCase()].filter(c => fB.toLowerCase().includes(c)).length / Math.max(fA.length, fB.length);
-        const score = shared * 0.6 + charOverlap * 0.4;
-        if (score > bestScore) { bestScore = score; bestJ = j; }
-      });
-      conns.push({ fromIdx: i, toIdx: bestJ, strength: Math.min(1, bestScore + 0.3) });
-    });
-    return conns;
-  }, [theoryA, theoryB]);
-
   const showLines = phase === "idle" || phase === "approach";
   const mergeShow = phase === "merge" && phaseTime > 1.0;
   if (!showLines && !mergeShow) return null;
 
-  const opacity = mergeShow ? Math.min((phaseTime - 1.0) / 1.0, 0.5) : 0.15;
+  const baseOpacity = mergeShow ? Math.min((phaseTime - 1.0) / 1.0, 0.5) : 0.15;
 
   return (
     <group>
@@ -206,7 +189,6 @@ function ConnectingLines({
         if (!positionsA[c.fromIdx] || !positionsB[c.toIdx]) return null;
         const from = positionsA[c.fromIdx];
         const to = positionsB[c.toIdx];
-        // Create a curved arc through a midpoint above
         const mid = new THREE.Vector3(
           (from.x + to.x) / 2,
           (from.y + to.y) / 2 + 0.8,
@@ -214,14 +196,20 @@ function ConnectingLines({
         );
         const curve = new THREE.QuadraticBezierCurve3(from, mid, to);
         const points = curve.getPoints(16);
+
+        const isHighlighted = highlightedFactor &&
+          ((highlightedFactor.key === "A" && highlightedFactor.idx === c.fromIdx) ||
+           (highlightedFactor.key === "B" && highlightedFactor.idx === c.toIdx));
+        const isDimmed = highlightedFactor && !isHighlighted;
+
         return (
           <Line
             key={i}
             points={points}
-            color={mergeShow ? "#a855f7" : "#94a3b8"}
-            lineWidth={1 + c.strength}
+            color={isHighlighted ? "#facc15" : mergeShow ? "#a855f7" : "#94a3b8"}
+            lineWidth={isHighlighted ? 3 : 1 + c.strength}
             transparent
-            opacity={opacity * c.strength}
+            opacity={isDimmed ? 0.03 : isHighlighted ? 0.8 : baseOpacity * c.strength}
           />
         );
       })}
