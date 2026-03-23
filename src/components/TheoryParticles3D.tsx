@@ -378,8 +378,91 @@ function Scene({
       <ambientLight intensity={0.3} />
       <pointLight position={[5, 5, 5]} intensity={0.8} />
       <pointLight position={[-5, -5, -5]} intensity={0.4} color="#6366f1" />
+// ─── Collision Fireworks ────────────────────────────────────
+function CollisionFireworks({ active }: { active: boolean }) {
+  const COUNT = 60;
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
 
-      
+  const particles = useMemo(() => {
+    return Array.from({ length: COUNT }, () => {
+      const phi = Math.acos(2 * Math.random() - 1);
+      const theta = Math.random() * Math.PI * 2;
+      const speed = 0.5 + Math.random() * 2;
+      return {
+        dir: new THREE.Vector3(
+          Math.sin(phi) * Math.cos(theta),
+          Math.sin(phi) * Math.sin(theta),
+          Math.cos(phi),
+        ).multiplyScalar(speed),
+        pos: new THREE.Vector3(0, 0, 0),
+        life: 0,
+        maxLife: 1 + Math.random() * 1.5,
+        colorMix: Math.random(), // 0=blue, 0.5=purple, 1=red
+      };
+    });
+  }, []);
+
+  const startTime = useRef(0);
+  const wasActive = useRef(false);
+
+  // Colors: blue → purple → red
+  const colorA = useMemo(() => new THREE.Color("#3b82f6"), []);
+  const colorB = useMemo(() => new THREE.Color("#a855f7"), []);
+  const colorC = useMemo(() => new THREE.Color("#ef4444"), []);
+
+  useFrame(({ clock }, delta) => {
+    if (!meshRef.current) return;
+
+    if (active && !wasActive.current) {
+      startTime.current = clock.elapsedTime;
+      particles.forEach(p => { p.pos.set(0, 0, 0); p.life = 0; });
+      wasActive.current = true;
+    }
+    if (!active) {
+      wasActive.current = false;
+    }
+
+    const elapsed = clock.elapsedTime - startTime.current;
+
+    for (let i = 0; i < COUNT; i++) {
+      const p = particles[i];
+      if (active || p.life < p.maxLife) {
+        p.life += delta;
+        p.pos.addScaledVector(p.dir, delta * 0.8);
+        // Gravity pull back
+        p.pos.y -= delta * 0.3;
+
+        const fade = Math.max(0, 1 - p.life / p.maxLife);
+        dummy.position.copy(p.pos);
+        dummy.scale.setScalar(0.04 * fade);
+        dummy.updateMatrix();
+        meshRef.current.setMatrixAt(i, dummy.matrix);
+
+        // Blend color
+        const c = new THREE.Color();
+        if (p.colorMix < 0.5) c.lerpColors(colorA, colorB, p.colorMix * 2);
+        else c.lerpColors(colorB, colorC, (p.colorMix - 0.5) * 2);
+        meshRef.current.setColorAt(i, c);
+      } else {
+        dummy.scale.setScalar(0);
+        dummy.updateMatrix();
+        meshRef.current.setMatrixAt(i, dummy.matrix);
+      }
+    }
+    meshRef.current.instanceMatrix.needsUpdate = true;
+    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={meshRef} args={[undefined, undefined, COUNT]}>
+      <sphereGeometry args={[1, 8, 8]} />
+      <meshStandardMaterial emissive="#ffffff" emissiveIntensity={1.5} transparent opacity={0.9} />
+    </instancedMesh>
+  );
+}
+
+
 
       {/* Theory A: blue factor dots + ambient particles */}
       {theoryA && (
