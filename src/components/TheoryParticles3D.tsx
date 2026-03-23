@@ -391,22 +391,6 @@ function Scene({
   );
 }
 
-// ─── Wireframe sphere outline ──────────────────────────────
-function WireframeSphere({ center, color }: { center: [number, number, number]; color: string }) {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame(({ clock }) => {
-    if (ref.current) {
-      ref.current.rotation.y = clock.elapsedTime * 0.15;
-      ref.current.rotation.x = Math.sin(clock.elapsedTime * 0.1) * 0.1;
-    }
-  });
-  return (
-    <mesh ref={ref} position={center}>
-      <sphereGeometry args={[1.8, 16, 16]} />
-      <meshBasicMaterial color={color} wireframe transparent opacity={0.1} />
-    </mesh>
-  );
-}
 
 // ─── Floating theory label ─────────────────────────────────
 function TheoryLabel({ text, position, color }: { text: string; position: [number, number, number]; color: string }) {
