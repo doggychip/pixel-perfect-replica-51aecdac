@@ -107,18 +107,18 @@ function ResultCard({ result, compact, onClick }: { result: CollisionResult; com
     return (
       <div
         onClick={onClick}
-        className="px-3 py-2.5 rounded-lg border border-border/50 cursor-pointer hover:bg-white/[0.03] hover:border-border transition-all group"
+        className="px-3 py-2.5 rounded-lg border border-border/50 cursor-pointer hover:bg-white/[0.03] hover:border-border transition-all group overflow-hidden"
       >
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-xs font-semibold truncate flex-1 group-hover:text-cyan-400 transition-colors">
+        <div className="flex items-center justify-between gap-2 mb-1 min-w-0">
+          <p className="text-xs font-semibold truncate flex-1 min-w-0 group-hover:text-cyan-400 transition-colors">
             {result.framework_name}
           </p>
           <ScoreBadge score={result.quality_score} />
         </div>
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <span className={dcA.text}>{result.theoryA.name}</span>
-          <Zap className="w-2.5 h-2.5 text-amber-400" />
-          <span className={dcB.text}>{result.theoryB.name}</span>
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground min-w-0">
+          <span className={`${dcA.text} truncate max-w-[40%]`}>{result.theoryA.name}</span>
+          <Zap className="w-2.5 h-2.5 text-amber-400 flex-shrink-0" />
+          <span className={`${dcB.text} truncate max-w-[40%]`}>{result.theoryB.name}</span>
         </div>
       </div>
     );
