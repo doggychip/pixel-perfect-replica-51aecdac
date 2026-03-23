@@ -505,7 +505,7 @@ export default function CollisionEnginePage() {
                 theoryA={selectedTheories[0] ?? null}
                 theoryB={selectedTheories[1] ?? null}
                 colliding={isColliding}
-                className="w-full h-72 rounded-lg overflow-hidden border border-border/50 bg-[hsl(225,50%,4%)]"
+                className="w-full h-[28rem] rounded-lg overflow-hidden border border-border/50 bg-[hsl(225,50%,4%)]"
               />
             </div>
           )}
