@@ -507,12 +507,6 @@ export default function TheoryParticles3D({
           </div>
         )}
       </div>
-      <div className="absolute top-3 right-3 pointer-events-none text-[9px] text-muted-foreground/50 text-right leading-relaxed">
-        <p>X: Complexity</p>
-        <p>Y: Abstraction</p>
-        <p>Z: Domain Breadth</p>
-        <p className="mt-1 text-muted-foreground/30">Dot size = importance weight</p>
-      </div>
     </div>
   );
 }
