@@ -215,6 +215,8 @@ export default function CollisionEnginePage() {
   });
   const [viewingResult, setViewingResult] = useState<CollisionResult | null>(null);
   const [error, setError] = useState("");
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
 
   const selectedTheories = useMemo(
