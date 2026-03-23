@@ -225,7 +225,10 @@ export default function CollisionEnginePage() {
     () => getTheoriesByDomain(activeDomain),
     [activeDomain],
   );
-
+  // Persist history to localStorage
+  useEffect(() => {
+    try { localStorage.setItem("zh_collision_history", JSON.stringify(history)); } catch {}
+  }, [history]);
 
   const handleSelect = useCallback((id: number) => {
     setSelectedIds(prev => {
