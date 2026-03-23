@@ -219,6 +219,52 @@ function ConnectingArcs({
   );
 }
 
+// ─── Sub-Particle Cloud per Factor ─────────────────────────
+function SubParticleCloud({ center, color, count, phase }: {
+  center: [number, number, number]; color: string; count: number; phase: Phase;
+}) {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const offsets = useMemo(() =>
+    Array.from({ length: count }, (_, i) => {
+      const phi = Math.acos(2 * Math.random() - 1);
+      const theta = Math.random() * Math.PI * 2;
+      const r = 0.15 + Math.random() * 0.35;
+      return {
+        x: r * Math.sin(phi) * Math.cos(theta),
+        y: r * Math.sin(phi) * Math.sin(theta),
+        z: r * Math.cos(phi),
+        speed: 0.3 + Math.random() * 0.7,
+        phase: Math.random() * Math.PI * 2,
+      };
+    }), [count]);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+
+  useFrame(({ clock }) => {
+    if (!meshRef.current) return;
+    const t = clock.elapsedTime;
+    for (let i = 0; i < count; i++) {
+      const o = offsets[i];
+      const scale = phase === "explode" ? 2.5 : phase === "approach" ? 0.6 : 1;
+      dummy.position.set(
+        center[0] + o.x * scale + Math.sin(t * o.speed + o.phase) * 0.05,
+        center[1] + o.y * scale + Math.cos(t * o.speed * 0.8 + o.phase) * 0.05,
+        center[2] + o.z * scale,
+      );
+      dummy.scale.setScalar(0.015 + Math.sin(t * 2 + i) * 0.005);
+      dummy.updateMatrix();
+      meshRef.current.setMatrixAt(i, dummy.matrix);
+    }
+    meshRef.current.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
+      <sphereGeometry args={[1, 6, 6]} />
+      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} transparent opacity={0.4} />
+    </instancedMesh>
+  );
+}
+
 // ─── Collision Fireworks ───────────────────────────────────
 function CollisionFireworks({ active }: { active: boolean }) {
   const COUNT = 60;
@@ -350,12 +396,15 @@ function Scene({
         <>
           <TheoryLabel text={theoryA.name} position={[offsetA[0], 2.3, 0]} color="#60a5fa" />
           {dotsA.map((d, i) => (
-            <FactorDot key={`a-${i}`} position={d.pos} targetPosition={d.pos}
-              color="#3b82f6" size={0.06 + d.weight * 0.08} factor={d.factor}
-              opacity={0.7 + d.weight * 0.3} highlighted={activeFactor === d.factor}
-              onHover={setHoveredFactor} onClick={setClickedFactor}
-              phase={phase} motion={d.motion}
-            />
+            <group key={`a-${i}`}>
+              <FactorDot position={d.pos} targetPosition={d.pos}
+                color="#3b82f6" size={0.06 + d.weight * 0.08} factor={d.factor}
+                opacity={0.7 + d.weight * 0.3} highlighted={activeFactor === d.factor}
+                onHover={setHoveredFactor} onClick={setClickedFactor}
+                phase={phase} motion={d.motion}
+              />
+              <SubParticleCloud center={d.pos} color="#3b82f6" count={8} phase={phase} />
+            </group>
           ))}
         </>
       )}
@@ -365,12 +414,15 @@ function Scene({
         <>
           <TheoryLabel text={theoryB.name} position={[offsetB[0], 2.3, 0]} color="#f87171" />
           {dotsB.map((d, i) => (
-            <FactorDot key={`b-${i}`} position={d.pos} targetPosition={d.pos}
-              color="#ef4444" size={0.06 + d.weight * 0.08} factor={d.factor}
-              opacity={0.7 + d.weight * 0.3} highlighted={activeFactor === d.factor}
-              onHover={setHoveredFactor} onClick={setClickedFactor}
-              phase={phase} motion={d.motion}
-            />
+            <group key={`b-${i}`}>
+              <FactorDot position={d.pos} targetPosition={d.pos}
+                color="#ef4444" size={0.06 + d.weight * 0.08} factor={d.factor}
+                opacity={0.7 + d.weight * 0.3} highlighted={activeFactor === d.factor}
+                onHover={setHoveredFactor} onClick={setClickedFactor}
+                phase={phase} motion={d.motion}
+              />
+              <SubParticleCloud center={d.pos} color="#ef4444" count={8} phase={phase} />
+            </group>
           ))}
         </>
       )}
