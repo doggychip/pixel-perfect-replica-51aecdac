@@ -345,7 +345,7 @@ function Scene({
       <pointLight position={[5, 5, 5]} intensity={0.8} />
       <pointLight position={[-5, -5, -5]} intensity={0.4} color="#6366f1" />
 
-      <Axes />
+      
 
       {/* Theory A: blue factor dots + ambient particles */}
       {theoryA && (
