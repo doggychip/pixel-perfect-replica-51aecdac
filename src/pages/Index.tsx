@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import {
   getTheoriesByDomain,
   type CollisionTheory, type DomainKey, type CollisionMode,
 } from "@/data/collision-theories";
+
+const ParticleField = lazy(() => import("@/components/ParticleField"));
 
 // ─── Types ───────────────────────────────────────────────────
 interface CollisionResult {
@@ -31,35 +33,7 @@ interface CollisionResult {
   timestamp: number;
 }
 
-// ─── Collision Animation ─────────────────────────────────────
-function CollisionAnimation({ colorA, colorB }: { colorA: string; colorB: string }) {
-  return (
-    <div className="flex items-center justify-center py-12">
-      <div className="relative w-64 h-32">
-        {/* Circle A */}
-        <div
-          className="absolute w-16 h-16 rounded-full animate-collision-left"
-          style={{
-            background: `radial-gradient(circle, ${colorA}, transparent)`,
-            boxShadow: `0 0 40px ${colorA}80`,
-          }}
-        />
-        {/* Circle B */}
-        <div
-          className="absolute w-16 h-16 rounded-full animate-collision-right"
-          style={{
-            background: `radial-gradient(circle, ${colorB}, transparent)`,
-            boxShadow: `0 0 40px ${colorB}80`,
-          }}
-        />
-        {/* Center flash */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          <div className="w-20 h-20 rounded-full animate-collision-flash" />
-        </div>
-      </div>
-    </div>
-  );
-}
+// CollisionAnimation removed — replaced by ParticleField 3D scene
 
 // ─── Score Badge ─────────────────────────────────────────────
 function ScoreBadge({ score }: { score: number }) {
@@ -583,10 +557,14 @@ Respond ONLY in JSON (no markdown, no backticks):
             </div>
           )}
 
-          {/* Collision animation */}
-          {isColliding && (
-            <CollisionAnimation colorA={colorA} colorB={colorB} />
-          )}
+          {/* 3D Particle Visualization */}
+          <Suspense fallback={<div className="w-full h-[300px] rounded-lg border border-border/30 bg-background/50 flex items-center justify-center"><Atom className="w-8 h-8 text-muted-foreground/30 animate-spin" /></div>}>
+            <ParticleField
+              theoryA={selectedTheories[0] ?? null}
+              theoryB={selectedTheories[1] ?? null}
+              isColliding={isColliding}
+            />
+          </Suspense>
 
           {/* Result */}
           <div ref={resultRef}>
@@ -598,18 +576,6 @@ Respond ONLY in JSON (no markdown, no backticks):
               </Card>
             )}
           </div>
-
-          {/* Empty state */}
-          {!currentResult && !isColliding && !error && (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center space-y-3">
-                <Atom className="w-16 h-16 text-muted-foreground/20 mx-auto" />
-                <p className="text-sm text-muted-foreground font-mono">
-                  Select two theories and collide them to discover novel frameworks
-                </p>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ─── RIGHT: History ─── */}
