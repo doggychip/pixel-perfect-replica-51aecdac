@@ -101,7 +101,7 @@ function ParticleCloud({
         >
           {theory.name}
         </Text>
-        {theory.nameZh && (
+          {(theory as any).nameZh && (
           <Text
             fontSize={0.22}
             color={color}
@@ -111,7 +111,7 @@ function ParticleCloud({
             outlineWidth={0.015}
             outlineColor="#000000"
           >
-            {theory.nameZh}
+            {(theory as any).nameZh}
           </Text>
         )}
       </Billboard>
