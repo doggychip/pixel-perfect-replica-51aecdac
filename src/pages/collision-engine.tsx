@@ -297,11 +297,6 @@ export default function CollisionEnginePage() {
       let jsonStr = JSON.stringify(parsed); // already parsed
       // If the edge function returned raw text, handle it
       const _parsed = typeof parsed === "string" ? JSON.parse(parsed) : parsed;
-      if (jsonStr.startsWith("```")) {
-        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-      }
-      const parsed = JSON.parse(jsonStr);
-
       const result: CollisionResult = {
         id: crypto.randomUUID(),
         theoryA,
