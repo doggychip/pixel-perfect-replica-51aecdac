@@ -605,33 +605,6 @@ export default function CollisionEnginePage() {
         </DialogContent>
       </Dialog>
 
-      {/* API Key dialog */}
-      <Dialog open={apiKeyOpen} onOpenChange={setApiKeyOpen}>
-        <DialogContent className="bg-card border-card-border max-w-md">
-          <DialogHeader>
-            <DialogTitle>Claude API Key</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 pt-2">
-            <p className="text-xs text-muted-foreground">
-              Enter your Anthropic API key to power theory collisions. The key is stored locally in your browser only.
-            </p>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={e => setApiKey(e.target.value)}
-              placeholder="sk-ant-..."
-              className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-            <Button
-              className="w-full bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-semibold"
-              onClick={() => setApiKeyOpen(false)}
-              disabled={!apiKey}
-            >
-              Save Key
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
