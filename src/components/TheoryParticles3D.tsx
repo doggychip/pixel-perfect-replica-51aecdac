@@ -165,10 +165,9 @@ function ConnectingArcs({
   highlightedFactor: string | null;
   phase: Phase;
 }) {
-  if (phase === "explode") return null;
-
   // Create connections: pair each dot in A with the closest dot in B
   const connections = useMemo(() => {
+    if (dotsA.length === 0 || dotsB.length === 0) return [];
     const conns: { from: [number, number, number]; to: [number, number, number]; factorA: string; factorB: string }[] = [];
     const usedB = new Set<number>();
     for (const a of dotsA) {
@@ -189,6 +188,8 @@ function ConnectingArcs({
     }
     return conns;
   }, [dotsA, dotsB]);
+
+  if (phase === "explode" || connections.length === 0) return null;
 
   return (
     <group>
