@@ -185,7 +185,7 @@ function ConnectingLines({
 
   return (
     <group>
-      {connections.map((c, i) => {
+      {(connections || []).map((c, i) => {
         if (!positionsA[c.fromIdx] || !positionsB[c.toIdx]) return null;
         const from = positionsA[c.fromIdx];
         const to = positionsB[c.toIdx];
