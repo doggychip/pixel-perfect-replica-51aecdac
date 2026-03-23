@@ -245,10 +245,6 @@ export default function CollisionEnginePage() {
     [activeDomain],
   );
 
-  // Save API key
-  useEffect(() => {
-    if (apiKey) localStorage.setItem("zh_claude_api_key", apiKey);
-  }, [apiKey]);
 
   const handleSelect = useCallback((id: number) => {
     setSelectedIds(prev => {
