@@ -459,20 +459,16 @@ export default function ParticleField({
         <AmbientDust />
 
         {theoryA && (
-          <TheoryParticles
-            theory={theoryA}
-            side="left"
-            isColliding={isColliding}
-            otherSelected={!!theoryB}
-          />
+          <>
+            <TheoryParticles theory={theoryA} side="left" isColliding={isColliding} otherSelected={!!theoryB} />
+            <TheoryLabel theory={theoryA} side="left" isColliding={isColliding} />
+          </>
         )}
         {theoryB && (
-          <TheoryParticles
-            theory={theoryB}
-            side="right"
-            isColliding={isColliding}
-            otherSelected={!!theoryA}
-          />
+          <>
+            <TheoryParticles theory={theoryB} side="right" isColliding={isColliding} otherSelected={!!theoryA} />
+            <TheoryLabel theory={theoryB} side="right" isColliding={isColliding} />
+          </>
         )}
 
         {theoryA && theoryB && (
