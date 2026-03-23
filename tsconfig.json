@@ -1,20 +1,33 @@
 {
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "build", "dist"],
   "compilerOptions": {
-    "noEmit": true,
-    "module": "ESNext",
-    "strict": true,
-    "lib": ["esnext", "dom", "dom.iterable"],
-    "jsx": "react-jsx",
-    "esModuleInterop": true,
-    "skipLibCheck": true,
     "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "jsx": "react-jsx",
+    "lib": [
+      "esnext",
+      "dom",
+      "dom.iterable"
+    ],
+    "module": "ESNext",
     "moduleResolution": "bundler",
-    "baseUrl": ".",
-    "types": ["vite/client"],
+    "noEmit": true,
     "paths": {
-      "@/*": ["./src/*"]
-    }
-  }
+      "@/*": [
+        "./src/*"
+      ]
+    },
+    "skipLibCheck": true,
+    "strict": true,
+    "types": [
+      "vite/client"
+    ]
+  },
+  "exclude": [
+    "node_modules",
+    "build",
+    "dist"
+  ],
+  "include": [
+    "src/**/*"
+  ]
 }

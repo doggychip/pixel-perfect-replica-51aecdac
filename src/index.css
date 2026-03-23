@@ -255,4 +255,34 @@
     linear-gradient(90deg, rgba(6, 182, 212, 0.03) 1px, transparent 1px);
   background-size: 40px 40px;
 }
-/* synced */
+/* Collision engine animations */
+@keyframes collision-left {
+  0% { transform: translateX(0); }
+  40% { transform: translateX(48px); }
+  50% { transform: translateX(44px) scale(1.1); }
+  60% { transform: translateX(48px); }
+  100% { transform: translateX(0); }
+}
+@keyframes collision-right {
+  0% { transform: translateX(0); }
+  40% { transform: translateX(-48px); }
+  50% { transform: translateX(-44px) scale(1.1); }
+  60% { transform: translateX(-48px); }
+  100% { transform: translateX(0); }
+}
+@keyframes collision-flash {
+  0%, 40% { opacity: 0; transform: scale(0); }
+  50% { opacity: 1; transform: scale(2); background: white; }
+  70% { opacity: 0.5; transform: scale(3); }
+  100% { opacity: 0; transform: scale(0); }
+}
+
+.animate-collision-left {
+  animation: collision-left 2s ease-in-out infinite;
+}
+.animate-collision-right {
+  animation: collision-right 2s ease-in-out infinite;
+}
+.animate-collision-flash {
+  animation: collision-flash 2s ease-in-out infinite;
+}
