@@ -33,35 +33,7 @@ interface CollisionResult {
   timestamp: number;
 }
 
-// ─── Collision Animation ─────────────────────────────────────
-function CollisionAnimation({ colorA, colorB }: { colorA: string; colorB: string }) {
-  return (
-    <div className="flex items-center justify-center py-12">
-      <div className="relative w-64 h-32">
-        {/* Circle A */}
-        <div
-          className="absolute w-16 h-16 rounded-full animate-collision-left"
-          style={{
-            background: `radial-gradient(circle, ${colorA}, transparent)`,
-            boxShadow: `0 0 40px ${colorA}80`,
-          }}
-        />
-        {/* Circle B */}
-        <div
-          className="absolute w-16 h-16 rounded-full animate-collision-right"
-          style={{
-            background: `radial-gradient(circle, ${colorB}, transparent)`,
-            boxShadow: `0 0 40px ${colorB}80`,
-          }}
-        />
-        {/* Center flash */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          <div className="w-20 h-20 rounded-full animate-collision-flash" />
-        </div>
-      </div>
-    </div>
-  );
-}
+// CollisionAnimation removed — replaced by ParticleField 3D scene
 
 // ─── Score Badge ─────────────────────────────────────────────
 function ScoreBadge({ score }: { score: number }) {
