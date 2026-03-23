@@ -237,6 +237,9 @@ function ParticleCloud({
   phase,
   phaseTime,
   onFactorPositions,
+  theoryKey,
+  highlightedFactor,
+  onSelectFactor,
 }: {
   theory: CollisionTheory;
   position: [number, number, number];
@@ -244,6 +247,9 @@ function ParticleCloud({
   phase: "idle" | "approach" | "explode" | "merge";
   phaseTime: number;
   onFactorPositions?: (positions: THREE.Vector3[]) => void;
+  theoryKey: "A" | "B";
+  highlightedFactor: { key: string; idx: number } | null;
+  onSelectFactor: (key: string, idx: number) => void;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const factorCount = theory.factors.length;
