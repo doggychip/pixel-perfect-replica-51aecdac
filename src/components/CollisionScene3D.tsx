@@ -483,11 +483,40 @@ function ColliderScene({
   const collidingRef = useRef(false);
   const [positionsA, setPositionsA] = useState<THREE.Vector3[]>([]);
   const [positionsB, setPositionsB] = useState<THREE.Vector3[]>([]);
+  const [highlightedFactor, setHighlightedFactor] = useState<{ key: string; idx: number } | null>(null);
+
+  const handleSelectFactor = useCallback((key: string, idx: number) => {
+    setHighlightedFactor(prev =>
+      prev?.key === key && prev?.idx === idx ? null : { key, idx }
+    );
+  }, []);
+
+  // Compute connections for highlight linking
+  const connections = useMemo(() => {
+    if (!theoryA || !theoryB) return [];
+    const conns: { fromIdx: number; toIdx: number; strength: number }[] = [];
+    theoryA.factors.forEach((fA, i) => {
+      let bestJ = 0;
+      let bestScore = 0;
+      theoryB.factors.forEach((fB, j) => {
+        const wordsA = new Set(fA.toLowerCase().split(/\s+/));
+        const wordsB = new Set(fB.toLowerCase().split(/\s+/));
+        let shared = 0;
+        wordsA.forEach(w => { if (wordsB.has(w)) shared++; });
+        const charOverlap = [...fA.toLowerCase()].filter(c => fB.toLowerCase().includes(c)).length / Math.max(fA.length, fB.length);
+        const score = shared * 0.6 + charOverlap * 0.4;
+        if (score > bestScore) { bestScore = score; bestJ = j; }
+      });
+      conns.push({ fromIdx: i, toIdx: bestJ, strength: Math.min(1, bestScore + 0.3) });
+    });
+    return conns;
+  }, [theoryA, theoryB]);
 
   useEffect(() => {
     if (colliding && !collidingRef.current) {
       collidingRef.current = true;
       setPhase("approach");
+      setHighlightedFactor(null);
       phaseStartRef.current = performance.now();
     }
     if (!colliding && collidingRef.current) {
@@ -522,10 +551,10 @@ function ColliderScene({
       <OrbitControls enablePan={false} maxDistance={14} minDistance={4} />
       <Axes />
       {theoryA && (
-        <ParticleCloud theory={theoryA} position={[-3, 0, 0]} color={colorA} phase={phase} phaseTime={phaseTime} onFactorPositions={handlePositionsA} />
+        <ParticleCloud theory={theoryA} position={[-3, 0, 0]} color={colorA} phase={phase} phaseTime={phaseTime} onFactorPositions={handlePositionsA} theoryKey="A" highlightedFactor={highlightedFactor} onSelectFactor={handleSelectFactor} />
       )}
       {theoryB && (
-        <ParticleCloud theory={theoryB} position={[3, 0, 0]} color={colorB} phase={phase} phaseTime={phaseTime} onFactorPositions={handlePositionsB} />
+        <ParticleCloud theory={theoryB} position={[3, 0, 0]} color={colorB} phase={phase} phaseTime={phaseTime} onFactorPositions={handlePositionsB} theoryKey="B" highlightedFactor={highlightedFactor} onSelectFactor={handleSelectFactor} />
       )}
       {theoryA && theoryB && positionsA.length > 0 && positionsB.length > 0 && (
         <ConnectingLines
@@ -535,6 +564,8 @@ function ColliderScene({
           positionsB={positionsB}
           phase={phase}
           phaseTime={phaseTime}
+          highlightedFactor={highlightedFactor}
+          connections={connections}
         />
       )}
       <CollisionFlash phase={phase} phaseTime={phaseTime} />
