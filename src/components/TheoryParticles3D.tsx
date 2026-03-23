@@ -5,17 +5,28 @@ import * as THREE from "three";
 import type { CollisionTheory } from "@/data/collision-theories";
 
 // ─── Helpers ───────────────────────────────────────────────
+type MotionPattern = "orbit" | "pulse" | "wave" | "spiral" | "jitter";
+
+// Classify factor type into a motion pattern
+function factorMotion(factor: string): MotionPattern {
+  const f = factor.toLowerCase();
+  if (/state|space|field|landscape|wavefunction|vacuum/.test(f)) return "orbit";
+  if (/probability|amplitude|weight|load|calibration|precision/.test(f)) return "pulse";
+  if (/collapse|measurement|observation|emergence|decoherence/.test(f)) return "wave";
+  if (/correlation|coupling|entangle|non-local|connection|social/.test(f)) return "spiral";
+  return "jitter"; // default for unknown types
+}
+
 // Map a factor string to pseudo-numeric dimensions for scatter placement
-function factorToCoords(factor: string, index: number, total: number): { x: number; y: number; z: number; weight: number } {
-  // Hash the factor name for deterministic placement
+function factorToCoords(factor: string, index: number, total: number): { x: number; y: number; z: number; weight: number; motion: MotionPattern } {
   let hash = 0;
   for (let i = 0; i < factor.length; i++) hash = ((hash << 5) - hash + factor.charCodeAt(i)) | 0;
-  const norm = (v: number) => ((v % 1000) / 1000); // 0..1
-  const complexity = norm(Math.abs(hash)) * 2 - 1;        // X axis
-  const abstraction = norm(Math.abs(hash >> 8)) * 2 - 1;  // Y axis
-  const breadth = norm(Math.abs(hash >> 16)) * 2 - 1;     // Z axis
-  const weight = 0.5 + norm(Math.abs(hash >> 4)) * 0.8;   // size weight 0.5..1.3
-  return { x: complexity, y: abstraction, z: breadth, weight };
+  const norm = (v: number) => ((v % 1000) / 1000);
+  const complexity = norm(Math.abs(hash)) * 2 - 1;
+  const abstraction = norm(Math.abs(hash >> 8)) * 2 - 1;
+  const breadth = norm(Math.abs(hash >> 16)) * 2 - 1;
+  const weight = 0.5 + norm(Math.abs(hash >> 4)) * 0.8;
+  return { x: complexity, y: abstraction, z: breadth, weight, motion: factorMotion(factor) };
 }
 
 type Phase = "idle" | "approach" | "explode" | "merge";
