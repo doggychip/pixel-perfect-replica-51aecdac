@@ -9,6 +9,7 @@ import {
   Zap, Shuffle, ChevronRight, Star, Clock, Link2, Atom,
   Sparkles, ArrowRight, X, History, AlertTriangle,
 } from "lucide-react";
+import TheoryParticles3D from "@/components/TheoryParticles3D";
 import {
   THEORIES, DOMAINS, COLLISION_MODES, DOMAIN_COLORS, DOMAIN_CLASSES,
   getTheoriesByDomain,
