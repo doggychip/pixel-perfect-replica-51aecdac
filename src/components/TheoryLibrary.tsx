@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { theories, DOMAINS, DOMAIN_COLORS, type Theory, type Domain } from "@/data/theories";
-import { Shuffle } from "lucide-react";
+import { Shuffle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -57,7 +57,7 @@ export function TheoryLibrary({ selected, onSelect }: Props) {
         </h2>
         <Button variant="neon" size="sm" onClick={handleRandom} className="text-xs gap-1.5">
           <Shuffle className="w-3 h-3" />
-          Random
+          Random Pair
         </Button>
       </div>
 
@@ -70,9 +70,9 @@ export function TheoryLibrary({ selected, onSelect }: Props) {
             <button
               key={d}
               onClick={() => setActiveDomain(d)}
-              className={`px-2 py-1 text-[10px] font-mono rounded transition-all border ${
+              className={`px-2 py-1 text-[10px] font-mono rounded-full transition-all border ${
                 isActive
-                  ? `${domainColorMap[ck]} border-current`
+                  ? `${domainColorMap[ck]} border-current bg-current/10`
                   : "border-border text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -83,7 +83,7 @@ export function TheoryLibrary({ selected, onSelect }: Props) {
       </div>
 
       {/* Theory List */}
-      <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+      <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
         {filtered.map((t) => {
           const isSelected = selected.some((s) => s.id === t.id);
           return (
@@ -102,10 +102,10 @@ export function TheoryLibrary({ selected, onSelect }: Props) {
                 </span>
                 <span className="text-xs text-muted-foreground">{t.chinese}</span>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed mb-2">{t.core}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed mb-2 line-clamp-2">{t.core}</p>
               <div className="flex flex-wrap gap-1">
                 {t.factors.map((f) => (
-                  <span key={f} className={`px-1.5 py-0.5 rounded text-[9px] font-mono ${domainBgMap[colorKey]}`}>
+                  <span key={f} className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono ${domainBgMap[colorKey]}`}>
                     {f}
                   </span>
                 ))}
@@ -114,6 +114,24 @@ export function TheoryLibrary({ selected, onSelect }: Props) {
           );
         })}
       </div>
+
+      {/* Selected theories */}
+      {selected.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-border/50 space-y-1.5">
+          <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Selected</span>
+          {selected.map((t) => {
+            const ck = DOMAIN_COLORS[t.domain];
+            return (
+              <div key={t.id} className={`flex items-center justify-between px-2 py-1.5 rounded border ${domainColorMap[ck]} border-current/30 bg-current/5`}>
+                <span className="text-xs font-medium">{t.name}</span>
+                <button onClick={() => onSelect(t)} className="hover:opacity-70">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
