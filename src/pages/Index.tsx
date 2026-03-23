@@ -13,6 +13,7 @@ import {
   getTheoriesByDomain,
   type CollisionTheory, type DomainKey, type CollisionMode,
 } from "@/data/collision-theories";
+import { supabase } from "@/integrations/supabase/client";
 
 const ParticleField = lazy(() => import("@/components/ParticleField"));
 
