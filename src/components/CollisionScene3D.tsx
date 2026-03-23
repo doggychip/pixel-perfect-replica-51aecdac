@@ -208,8 +208,26 @@ function ParticleCloud({
     geoRef.current.attributes.position.needsUpdate = true;
   });
 
+  const sphereRadius = spread * 0.6;
+  const sphereRef = useRef<THREE.Mesh>(null);
+
+  // Animate sphere glow
+  useFrame(({ clock }) => {
+    if (!sphereRef.current) return;
+    const t = clock.getElapsedTime();
+    sphereRef.current.rotation.y = t * 0.15;
+    sphereRef.current.rotation.x = Math.sin(t * 0.1) * 0.2;
+    const pulse = 0.12 + Math.sin(t * 2) * 0.06;
+    (sphereRef.current.material as THREE.MeshBasicMaterial).opacity = phase === "idle" || phase === "approach" ? pulse : 0;
+  });
+
   return (
     <group ref={groupRef} position={position}>
+      {/* Glowing wireframe sphere */}
+      <mesh ref={sphereRef}>
+        <sphereGeometry args={[sphereRadius * 1.05, 24, 16]} />
+        <meshBasicMaterial color={color} wireframe transparent opacity={0.12} />
+      </mesh>
       <points>
         <bufferGeometry ref={geoRef}>
           <bufferAttribute
