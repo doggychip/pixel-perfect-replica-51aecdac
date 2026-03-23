@@ -4,6 +4,19 @@ import { Billboard, Text, OrbitControls, Stars } from "@react-three/drei";
 import * as THREE from "three";
 import type { CollisionTheory } from "@/data/collision-theories";
 
+// ─── Motion pattern detection from factor keywords ───────────
+type MotionPattern = "orbital" | "wave" | "chaotic" | "pulsing" | "spiral";
+
+function detectMotionPattern(factors: string[]): MotionPattern {
+  const joined = factors.join(" ").toLowerCase();
+  if (/orbit|field|rotat|spin|angular|entangl/.test(joined)) return "orbital";
+  if (/wave|oscillat|frequen|interference|vibrat|resonan/.test(joined)) return "wave";
+  if (/chaos|strange|bifurcat|fractal|attractor|nonlinear|turbul/.test(joined)) return "chaotic";
+  if (/puls|rhythm|heartbeat|sync|feedback|oscillat|neural|firing/.test(joined)) return "pulsing";
+  if (/spiral|vortex|topolog|loop|curl|manifold|twist/.test(joined)) return "spiral";
+  return "wave"; // default
+}
+
 // ─── Particle Cloud ──────────────────────────────────────────
 function ParticleCloud({
   theory,
@@ -17,24 +30,28 @@ function ParticleCloud({
   colliding: boolean;
 }) {
   const groupRef = useRef<THREE.Group>(null);
-  const count = Math.max(30, theory.factors.length * 14);
+  const factorCount = theory.factors.length;
+  const count = Math.max(30, factorCount * 18); // more factors = more particles
+  const spread = 1.8 + factorCount * 0.25;      // more factors = wider cloud
   const threeColor = new THREE.Color(color);
+  const pattern = useMemo(() => detectMotionPattern(theory.factors), [theory.factors]);
 
   const particles = useMemo(() => {
-    const arr: { pos: THREE.Vector3; speed: number; offset: number }[] = [];
+    const arr: { pos: THREE.Vector3; speed: number; offset: number; radius: number }[] = [];
     for (let i = 0; i < count; i++) {
       arr.push({
         pos: new THREE.Vector3(
-          (Math.random() - 0.5) * 2.5,
-          (Math.random() - 0.5) * 2.5,
-          (Math.random() - 0.5) * 2.5
+          (Math.random() - 0.5) * spread,
+          (Math.random() - 0.5) * spread,
+          (Math.random() - 0.5) * spread
         ),
-        speed: 0.3 + Math.random() * 0.7,
+        speed: 0.2 + Math.random() * 0.8,
         offset: Math.random() * Math.PI * 2,
+        radius: 0.5 + Math.random() * 1.5,
       });
     }
     return arr;
-  }, [count]);
+  }, [count, spread]);
 
   const positionsAttr = useMemo(() => {
     const arr = new Float32Array(count * 3);
@@ -54,10 +71,53 @@ function ParticleCloud({
     const posArr = geoRef.current.attributes.position.array as Float32Array;
 
     particles.forEach((p, i) => {
-      const wave = Math.sin(t * p.speed + p.offset) * 0.3;
-      posArr[i * 3] = p.pos.x + wave;
-      posArr[i * 3 + 1] = p.pos.y + Math.cos(t * p.speed * 0.7 + p.offset) * 0.3;
-      posArr[i * 3 + 2] = p.pos.z + Math.sin(t * p.speed * 0.5 + p.offset) * 0.2;
+      let dx = 0, dy = 0, dz = 0;
+
+      switch (pattern) {
+        case "orbital": {
+          // Circular orbits around origin
+          const angle = t * p.speed + p.offset;
+          dx = Math.cos(angle) * p.radius * 0.4;
+          dy = Math.sin(angle * 0.6 + p.offset) * 0.3;
+          dz = Math.sin(angle) * p.radius * 0.4;
+          break;
+        }
+        case "wave": {
+          // Sine wave propagation along X
+          dx = Math.sin(t * p.speed + p.offset) * 0.4;
+          dy = Math.sin(t * p.speed * 1.3 + p.pos.x * 2) * 0.35;
+          dz = Math.cos(t * p.speed * 0.5 + p.offset) * 0.2;
+          break;
+        }
+        case "chaotic": {
+          // Lorenz-inspired jittery motion
+          const s = t * p.speed;
+          dx = Math.sin(s * 1.7 + p.offset) * 0.5 + Math.sin(s * 3.1) * 0.15;
+          dy = Math.cos(s * 2.3 + p.offset * 1.4) * 0.4 + Math.cos(s * 4.7) * 0.1;
+          dz = Math.sin(s * 1.1 + p.offset * 0.7) * 0.35 + Math.sin(s * 5.3) * 0.08;
+          break;
+        }
+        case "pulsing": {
+          // Expand/contract rhythmically
+          const pulse = 1 + Math.sin(t * 1.5) * 0.35;
+          dx = p.pos.x * (pulse - 1) * 0.6;
+          dy = p.pos.y * (pulse - 1) * 0.6 + Math.sin(t * p.speed + p.offset) * 0.1;
+          dz = p.pos.z * (pulse - 1) * 0.6;
+          break;
+        }
+        case "spiral": {
+          // Helical rising motion
+          const angle = t * p.speed * 0.8 + p.offset;
+          dx = Math.cos(angle) * p.radius * 0.3;
+          dy = Math.sin(t * 0.3 + p.offset) * 0.8;
+          dz = Math.sin(angle) * p.radius * 0.3;
+          break;
+        }
+      }
+
+      posArr[i * 3] = p.pos.x + dx;
+      posArr[i * 3 + 1] = p.pos.y + dy;
+      posArr[i * 3 + 2] = p.pos.z + dz;
     });
     geoRef.current.attributes.position.needsUpdate = true;
 
@@ -68,7 +128,6 @@ function ParticleCloud({
       groupRef.current.position.x += (position[0] - groupRef.current.position.x) * 0.05;
     }
   });
-
   return (
     <group ref={groupRef} position={position}>
       <points>
