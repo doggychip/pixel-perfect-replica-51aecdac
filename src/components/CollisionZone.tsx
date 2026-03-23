@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { type Theory, DOMAIN_COLORS, COLLISION_MODES } from "@/data/theories";
+import { THEORIES, DOMAINS, DOMAIN_COLORS, DOMAIN_CLASSES, COLLISION_MODES, type CollisionTheory, type DomainKey } from "@/data/collision-theories";
 import { type CollisionResult } from "@/types/collision";
 import { collideWithClaude, getApiKey } from "@/lib/claudeApi";
 import { generateCollision } from "@/lib/collisionEngine";
@@ -7,34 +7,25 @@ import { Button } from "@/components/ui/button";
 import { Zap, Atom, AlertTriangle, Star, ArrowRight, Sparkles } from "lucide-react";
 
 interface Props {
-  selected: Theory[];
+  selected: CollisionTheory[];
   onResult: (result: CollisionResult) => void;
   isColliding: boolean;
   setIsColliding: (v: boolean) => void;
   currentResult: CollisionResult | null;
 }
 
-const domainHexMap: Record<string, string> = {
-  quantum: "#00fff5",
-  cognitive: "#a855f7",
-  dynamic: "#22c55e",
-  information: "#f59e0b",
-  topology: "#ec4899",
-  neuroscience: "#3b82f6",
-};
-
 export function CollisionZone({ selected, onResult, isColliding, setIsColliding, currentResult }: Props) {
-  const [mode, setMode] = useState("Fuse");
+  const [mode, setMode] = useState<string>("fuse");
   const [error, setError] = useState<string | null>(null);
 
   const theoryA = selected[0] || null;
   const theoryB = selected[1] || null;
   const canCollide = theoryA && theoryB && !isColliding;
 
-  const modeObj = COLLISION_MODES.find((m) => m.value === mode)!;
+  const modeObj = COLLISION_MODES.find((m) => m.key === mode)!;
 
-  const colorA = theoryA ? domainHexMap[DOMAIN_COLORS[theoryA.domain]] : "#00fff5";
-  const colorB = theoryB ? domainHexMap[DOMAIN_COLORS[theoryB.domain]] : "#a855f7";
+  const colorA = theoryA ? DOMAIN_COLORS[theoryA.domain as DomainKey] : "#00fff5";
+  const colorB = theoryB ? DOMAIN_COLORS[theoryB.domain as DomainKey] : "#a855f7";
 
   const handleCollide = async () => {
     if (!canCollide || !theoryA || !theoryB) return;
@@ -45,10 +36,10 @@ export function CollisionZone({ selected, onResult, isColliding, setIsColliding,
     try {
       let result: CollisionResult;
       if (apiKey) {
-        result = await collideWithClaude(theoryA, theoryB, mode, modeObj.desc, apiKey);
+        result = await collideWithClaude(theoryA, theoryB, modeObj.label, modeObj.desc, apiKey);
       } else {
         await new Promise((r) => setTimeout(r, 1800));
-        result = generateCollision(theoryA, theoryB, mode);
+        result = generateCollision(theoryA, theoryB, modeObj.label);
       }
       onResult(result);
     } catch (e: any) {
@@ -58,7 +49,7 @@ export function CollisionZone({ selected, onResult, isColliding, setIsColliding,
     }
   };
 
-  const scoreColor = (s: number) => (s >= 8 ? "text-dynamic" : s >= 5 ? "text-information" : "text-destructive");
+  const scoreColor = (s: number) => (s >= 8 ? "text-green-400" : s >= 5 ? "text-amber-400" : "text-destructive");
 
   return (
     <div className="flex flex-col h-full">
@@ -70,7 +61,6 @@ export function CollisionZone({ selected, onResult, isColliding, setIsColliding,
       <div className="flex gap-3 mb-4 items-stretch">
         <TheorySlot theory={theoryA} label="Theory A" />
         
-        {/* VS Area */}
         <div className="flex flex-col items-center justify-center gap-2 shrink-0 w-[140px]">
           <Zap className="w-6 h-6 text-primary" />
           <select
@@ -79,7 +69,7 @@ export function CollisionZone({ selected, onResult, isColliding, setIsColliding,
             className="w-full bg-secondary border border-border rounded px-2 py-1.5 text-[11px] font-mono text-foreground focus:outline-none focus:border-primary/50"
           >
             {COLLISION_MODES.map((m) => (
-              <option key={m.value} value={m.value}>{m.label}</option>
+              <option key={m.key} value={m.key}>{m.label} ({m.labelCn})</option>
             ))}
           </select>
           <p className="text-[9px] text-muted-foreground text-center leading-tight">{modeObj.desc}</p>
@@ -94,9 +84,7 @@ export function CollisionZone({ selected, onResult, isColliding, setIsColliding,
         disabled={!canCollide}
         className="w-full mb-4 h-14 font-display font-bold tracking-wider uppercase text-lg rounded-lg transition-all active:scale-95 disabled:opacity-50"
         style={{
-          background: canCollide
-            ? `linear-gradient(135deg, ${colorA}, ${colorB})`
-            : undefined,
+          background: canCollide ? `linear-gradient(135deg, ${colorA}, ${colorB})` : undefined,
           color: canCollide ? "hsl(var(--background))" : undefined,
           boxShadow: canCollide ? `0 0 30px ${colorA}40, 0 0 30px ${colorB}40` : undefined,
         }}
@@ -117,21 +105,13 @@ export function CollisionZone({ selected, onResult, isColliding, setIsColliding,
         <div className="relative h-[120px] mb-4">
           <div
             className="absolute w-16 h-16 rounded-full animate-collision-left"
-            style={{
-              background: `radial-gradient(circle, ${colorA}, transparent)`,
-              boxShadow: `0 0 30px ${colorA}80`,
-            }}
+            style={{ background: `radial-gradient(circle, ${colorA}, transparent)`, boxShadow: `0 0 30px ${colorA}80` }}
           />
           <div
             className="absolute w-16 h-16 rounded-full animate-collision-right"
-            style={{
-              background: `radial-gradient(circle, ${colorB}, transparent)`,
-              boxShadow: `0 0 30px ${colorB}80`,
-            }}
+            style={{ background: `radial-gradient(circle, ${colorB}, transparent)`, boxShadow: `0 0 30px ${colorB}80` }}
           />
-          <div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full animate-collision-flash"
-          />
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full animate-collision-flash" />
         </div>
       )}
 
@@ -190,9 +170,7 @@ export function CollisionZone({ selected, onResult, isColliding, setIsColliding,
             <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Applications</h4>
             <div className="flex flex-wrap gap-1.5">
               {currentResult.practical_applications.map((a, i) => (
-                <span key={i} className="text-[10px] px-2 py-1 rounded-full bg-secondary text-secondary-foreground font-mono">
-                  {a}
-                </span>
+                <span key={i} className="text-[10px] px-2 py-1 rounded-full bg-secondary text-secondary-foreground font-mono">{a}</span>
               ))}
             </div>
           </div>
@@ -204,16 +182,14 @@ export function CollisionZone({ selected, onResult, isColliding, setIsColliding,
       {!currentResult && !isColliding && (
         <div className="flex-1 flex flex-col items-center justify-center gap-3">
           <Atom className="w-12 h-12 text-muted-foreground/30" />
-          <p className="text-muted-foreground text-sm font-mono text-center">
-            Select 2 theories and collide them
-          </p>
+          <p className="text-muted-foreground text-sm font-mono text-center">Select 2 theories and collide them</p>
         </div>
       )}
     </div>
   );
 }
 
-function TheorySlot({ theory, label }: { theory: Theory | null; label: string }) {
+function TheorySlot({ theory, label }: { theory: CollisionTheory | null; label: string }) {
   if (!theory) {
     return (
       <div className="flex-1 border border-dashed border-border/50 rounded-lg p-4 flex items-center justify-center min-h-[120px]">
@@ -222,22 +198,14 @@ function TheorySlot({ theory, label }: { theory: Theory | null; label: string })
     );
   }
 
-  const ck = DOMAIN_COLORS[theory.domain];
-  const hex = {
-    quantum: "#00fff5", cognitive: "#a855f7", dynamic: "#22c55e",
-    information: "#f59e0b", topology: "#ec4899", neuroscience: "#3b82f6",
-  }[ck] || "#00fff5";
+  const classes = DOMAIN_CLASSES[theory.domain as DomainKey];
+  const color = DOMAIN_COLORS[theory.domain as DomainKey];
 
   return (
-    <div
-      className="flex-1 border rounded-lg p-4 min-h-[120px] bg-card/40"
-      style={{ borderColor: `${hex}30` }}
-    >
-      <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: hex }}>
-        {theory.domain}
-      </span>
-      <h3 className="font-display text-sm font-bold mt-1" style={{ color: hex }}>{theory.name}</h3>
-      <p className="text-xs text-muted-foreground mt-1">{theory.chinese}</p>
+    <div className={`flex-1 border rounded-lg p-4 min-h-[120px] bg-card/40 ${classes.border}`}>
+      <span className={`text-[10px] font-mono uppercase tracking-wider ${classes.text}`}>{theory.domain}</span>
+      <h3 className={`font-display text-sm font-bold mt-1 ${classes.text}`}>{theory.name}</h3>
+      <p className="text-xs text-muted-foreground mt-1">{theory.nameCn}</p>
       <p className="text-xs text-foreground/70 mt-2 leading-relaxed line-clamp-2">{theory.core}</p>
     </div>
   );

@@ -1,4 +1,4 @@
-import { type Theory } from "@/data/theories";
+import { type CollisionTheory } from "@/data/collision-theories";
 import { type CollisionResult } from "@/types/collision";
 
 // Deterministic hash for consistent results
@@ -22,8 +22,8 @@ const frameworkSuffixes = [
 ];
 
 export function generateCollision(
-  theoryA: Theory,
-  theoryB: Theory,
+  theoryA: CollisionTheory,
+  theoryB: CollisionTheory,
   mode: string
 ): CollisionResult {
   const seed = simpleHash(`${theoryA.id}-${theoryB.id}-${mode}`);
@@ -63,12 +63,12 @@ export function generateCollision(
     `AI systems: Build agents that leverage ${theoryA.factors[1]}-${theoryB.factors[0]} duality for more robust decision-making`,
   ];
 
-  const score = 5 + (seed % 5); // 5-9
+  const score = 5 + (seed % 5);
 
   return {
     id: crypto.randomUUID(),
-    theoryA: { name: theoryA.name, chinese: theoryA.chinese, domain: theoryA.domain },
-    theoryB: { name: theoryB.name, chinese: theoryB.chinese, domain: theoryB.domain },
+    theoryA: { name: theoryA.name, chinese: theoryA.nameCn, domain: theoryA.domain },
+    theoryB: { name: theoryB.name, chinese: theoryB.nameCn, domain: theoryB.domain },
     mode,
     framework_name: `${fwName} (${fwChinese})`,
     core_insight: modeInsights[mode] || modeInsights["Fuse"],
