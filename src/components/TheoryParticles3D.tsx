@@ -323,6 +323,3 @@ export default function TheoryParticles3D({
     </div>
   );
 }
-
-// Need useState import
-import { useState } from "react";
