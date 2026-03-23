@@ -206,7 +206,12 @@ export default function CollisionEnginePage() {
   const [collisionMode, setCollisionMode] = useState<CollisionMode>("fuse");
   const [isColliding, setIsColliding] = useState(false);
   const [currentResult, setCurrentResult] = useState<CollisionResult | null>(null);
-  const [history, setHistory] = useState<CollisionResult[]>([]);
+  const [history, setHistory] = useState<CollisionResult[]>(() => {
+    try {
+      const saved = localStorage.getItem("zh_collision_history");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [viewingResult, setViewingResult] = useState<CollisionResult | null>(null);
   const [error, setError] = useState("");
   const resultRef = useRef<HTMLDivElement>(null);
