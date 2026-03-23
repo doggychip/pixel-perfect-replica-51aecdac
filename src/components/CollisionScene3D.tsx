@@ -83,16 +83,21 @@ function ParticleCloud({
 
   const particles = useMemo(() => {
     const arr: ParticleData[] = [];
+    const baseRadius = spread * 0.6;
     for (let i = 0; i < count; i++) {
+      // Distribute on a spherical shell with some thickness
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = baseRadius * (0.7 + Math.random() * 0.3); // shell thickness
       arr.push({
         pos: new THREE.Vector3(
-          (Math.random() - 0.5) * spread,
-          (Math.random() - 0.5) * spread,
-          (Math.random() - 0.5) * spread
+          r * Math.sin(phi) * Math.cos(theta),
+          r * Math.sin(phi) * Math.sin(theta),
+          r * Math.cos(phi)
         ),
         speed: 0.2 + Math.random() * 0.8,
         offset: Math.random() * Math.PI * 2,
-        radius: 0.5 + Math.random() * 1.5,
+        radius: baseRadius,
       });
     }
     return arr;
