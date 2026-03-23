@@ -325,15 +325,6 @@ export default function CollisionEnginePage() {
             Select 2 theories from different domains, pick a collision mode, and discover novel frameworks
           </p>
         </div>
-        <div>
-          <Button
-            variant="neon"
-            size="sm"
-            onClick={() => setApiKeyOpen(true)}
-          >
-            {apiKey ? "API Key Set" : "Set API Key"}
-          </Button>
-        </div>
       </header>
 
       {/* Three-panel layout */}
