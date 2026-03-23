@@ -357,14 +357,6 @@ export default function CollisionEnginePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs h-7"
-            onClick={() => setApiKeyOpen(true)}
-          >
-            {apiKey ? "API Key Set" : "Set API Key"}
-          </Button>
         </div>
       </div>
 
