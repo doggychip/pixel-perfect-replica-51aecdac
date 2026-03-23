@@ -5,6 +5,57 @@ import * as THREE from "three";
 import type { CollisionTheory, DomainKey } from "@/data/collision-theories";
 import { DOMAIN_COLORS } from "@/data/collision-theories";
 
+// ─── Factor-based motion pattern classification ─────────────
+// Each factor keyword maps to a motion archetype that shapes particle behavior
+type MotionPattern = "orbital" | "wave" | "chaotic" | "pulsing" | "spiral" | "lattice";
+
+const FACTOR_MOTION_MAP: Record<string, MotionPattern> = {
+  // Orbital — stable, circular, predictable
+  "state space": "orbital", "probability amplitude": "orbital", "basin of attraction": "orbital",
+  "stability": "orbital", "contraction": "orbital", "continuity": "orbital",
+  "structural connectivity": "orbital", "functional connectivity": "orbital",
+  "local-global relationship": "orbital", "charts": "orbital", "smooth structure": "orbital",
+  "local triviality": "orbital", "connection": "orbital", "parallel transport": "orbital",
+  
+  // Wave — sinusoidal, flowing, interference
+  "complementarity": "wave", "observation context": "wave", "interference": "wave",
+  "frequency bands": "wave", "synchronization": "wave", "phase coupling": "wave",
+  "prediction error": "wave", "generative model": "wave", "precision weighting": "wave",
+  "top-down predictions": "wave", "bottom-up errors": "wave", "hierarchical inference": "wave",
+  "cycles": "wave", "boundaries": "wave", "filtration": "wave",
+  
+  // Chaotic — turbulent, unpredictable, butterfly-like
+  "butterfly effect": "chaotic", "strange attractors": "chaotic", "fractal boundaries": "chaotic",
+  "power laws": "chaotic", "avalanches": "chaotic", "sandpile model": "chaotic",
+  "bifurcation": "chaotic", "perturbation": "chaotic", "algorithmic randomness": "chaotic",
+  "critical point": "chaotic", "symmetry breaking": "chaotic",
+  
+  // Pulsing — rhythmic expansion/contraction
+  "measurement collapse": "pulsing", "non-locality": "pulsing", "correlation": "pulsing",
+  "co-activation": "pulsing", "long-term potentiation": "pulsing", "synaptic plasticity": "pulsing",
+  "broadcasting": "pulsing", "access": "pulsing", "workspace ignition": "pulsing",
+  "integration": "pulsing", "differentiation": "pulsing", "causal power": "pulsing",
+  "positive feedback": "pulsing", "negative feedback": "pulsing",
+  
+  // Spiral — helical paths, DNA-like
+  "information leakage": "spiral", "classical emergence": "spiral", "environment coupling": "spiral",
+  "entropy export": "spiral", "self-organization": "spiral", "energy flow": "spiral",
+  "operational closure": "spiral", "structural coupling": "spiral", "self-production": "spiral",
+  "winding numbers": "spiral", "knot invariants": "spiral", "linking number": "spiral",
+  "invariants": "spiral", "topological order": "spiral",
+  
+  // Lattice — grid-like, structured, crystalline
+  "probability distribution": "lattice", "surprise": "lattice", "compression": "lattice",
+  "redundancy": "lattice", "noise tolerance": "lattice", "capacity bounds": "lattice",
+  "compressibility": "lattice", "minimal description": "lattice",
+  "network topology": "lattice", "Betti numbers": "lattice", "persistence diagram": "lattice",
+  "critical points": "lattice", "index": "lattice", "gradient flow": "lattice",
+};
+
+function classifyFactors(factors: string[]): MotionPattern[] {
+  return factors.map(f => FACTOR_MOTION_MAP[f] ?? "orbital");
+}
+
 // ─── Single theory particle cloud ───────────────────────────
 function TheoryParticles({
   theory,
@@ -18,77 +69,140 @@ function TheoryParticles({
   otherSelected: boolean;
 }) {
   const meshRef = useRef<THREE.Points>(null);
-  const count = 200;
+  
+  // More factors = more particles (base 80, +60 per factor)
+  const factorCount = theory.factors.length;
+  const count = Math.min(400, 80 + factorCount * 60);
+  const motionPatterns = useMemo(() => classifyFactors(theory.factors), [theory.factors]);
+  
   const colorHex = DOMAIN_COLORS[theory.domain as DomainKey] ?? "#888888";
   const baseX = side === "left" ? -2.5 : 2.5;
 
-  const { positions, velocities, sizes } = useMemo(() => {
+  const { positions, velocities, sizes, patternAssign } = useMemo(() => {
     const pos = new Float32Array(count * 3);
     const vel = new Float32Array(count * 3);
     const sz = new Float32Array(count);
+    const pa = new Uint8Array(count); // which factor/pattern each particle belongs to
+    
     for (let i = 0; i < count; i++) {
+      // Assign particle to a factor group
+      pa[i] = i % factorCount;
+      
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
-      const r = 0.6 + Math.random() * 0.8;
+      const r = 0.5 + Math.random() * 0.9;
       pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
       pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
       pos[i * 3 + 2] = r * Math.cos(phi);
-      vel[i * 3] = (Math.random() - 0.5) * 0.01;
-      vel[i * 3 + 1] = (Math.random() - 0.5) * 0.01;
-      vel[i * 3 + 2] = (Math.random() - 0.5) * 0.01;
+      vel[i * 3] = (Math.random() - 0.5) * 0.015;
+      vel[i * 3 + 1] = (Math.random() - 0.5) * 0.015;
+      vel[i * 3 + 2] = (Math.random() - 0.5) * 0.015;
       sz[i] = 2 + Math.random() * 4;
     }
-    return { positions: pos, velocities: vel, sizes: sz };
-  }, [theory.id]);
+    return { positions: pos, velocities: vel, sizes: sz, patternAssign: pa };
+  }, [theory.id, count, factorCount]);
 
   const color = useMemo(() => new THREE.Color(colorHex), [colorHex]);
 
   useFrame((state) => {
     if (!meshRef.current) return;
-    const geo = meshRef.current.geometry;
-    const posAttr = geo.getAttribute("position") as THREE.BufferAttribute;
+    const posAttr = meshRef.current.geometry.getAttribute("position") as THREE.BufferAttribute;
     const t = state.clock.elapsedTime;
 
-    // Collision target: move toward center
+    // Move group toward center when colliding
     const targetX = isColliding ? 0 : baseX;
-    const currentGroupX = meshRef.current.position.x;
-    meshRef.current.position.x += (targetX - currentGroupX) * 0.03;
+    meshRef.current.position.x += (targetX - meshRef.current.position.x) * 0.03;
 
-    // Gentle orbital + breathing motion
     for (let i = 0; i < count; i++) {
       const ix = i * 3;
       const x = positions[ix];
       const y = positions[ix + 1];
       const z = positions[ix + 2];
+      const pattern = motionPatterns[patternAssign[i]] ?? "orbital";
+      const seed = i * 0.1;
 
-      // Slow rotation
-      const angle = t * 0.3 + i * 0.001;
-      const cos = Math.cos(angle * 0.01);
-      const sin = Math.sin(angle * 0.01);
+      let nx: number, ny: number, nz: number;
 
-      let nx = x * cos - z * sin + velocities[ix] * Math.sin(t + i);
-      let ny = y + velocities[ix + 1] * Math.cos(t * 0.7 + i);
-      let nz = x * sin + z * cos + velocities[ix + 2] * Math.sin(t * 1.3 + i);
+      switch (pattern) {
+        case "orbital": {
+          // Smooth circular orbits
+          const a = t * 0.4 + seed;
+          const c = Math.cos(a * 0.02);
+          const s = Math.sin(a * 0.02);
+          nx = x * c - z * s;
+          ny = y + velocities[ix + 1] * Math.cos(t * 0.5 + i);
+          nz = x * s + z * c;
+          break;
+        }
+        case "wave": {
+          // Sinusoidal wave motion — particles ripple up/down
+          const waveFreq = 1.5 + (patternAssign[i] % 3) * 0.5;
+          const waveAmp = 0.15;
+          nx = x + velocities[ix] * Math.sin(t * 0.8 + seed);
+          ny = y + waveAmp * Math.sin(t * waveFreq + x * 3);
+          nz = z + velocities[ix + 2] * Math.cos(t * 0.6 + seed);
+          break;
+        }
+        case "chaotic": {
+          // Lorenz-inspired turbulent jitter
+          const jx = Math.sin(t * 2.3 + seed * 7) * 0.12;
+          const jy = Math.cos(t * 1.7 + seed * 11) * 0.12;
+          const jz = Math.sin(t * 3.1 + seed * 13) * 0.12;
+          nx = x + jx + velocities[ix] * Math.sin(t * 1.5 + i);
+          ny = y + jy + velocities[ix + 1] * Math.cos(t * 2.1 + i);
+          nz = z + jz + velocities[ix + 2] * Math.sin(t * 1.8 + i);
+          break;
+        }
+        case "pulsing": {
+          // Rhythmic expand/contract from center
+          const pulseRate = 1.2 + (patternAssign[i] % 2) * 0.6;
+          const pulseScale = 1 + 0.25 * Math.sin(t * pulseRate + seed);
+          nx = x * pulseScale;
+          ny = y * pulseScale;
+          nz = z * pulseScale;
+          break;
+        }
+        case "spiral": {
+          // Helical ascending/descending paths
+          const spiralT = t * 0.6 + seed;
+          const spiralR = Math.sqrt(x * x + z * z);
+          nx = spiralR * Math.cos(spiralT * 0.5 + Math.atan2(z, x));
+          ny = y + 0.08 * Math.sin(spiralT * 1.5);
+          nz = spiralR * Math.sin(spiralT * 0.5 + Math.atan2(z, x));
+          break;
+        }
+        case "lattice": {
+          // Subtle structured vibration — grid-locked with tremor
+          const gridSnap = 0.3;
+          const gx = Math.round(x / gridSnap) * gridSnap;
+          const gy = Math.round(y / gridSnap) * gridSnap;
+          const gz = Math.round(z / gridSnap) * gridSnap;
+          const tremor = 0.04;
+          nx = gx + tremor * Math.sin(t * 3 + seed * 5);
+          ny = gy + tremor * Math.cos(t * 2.5 + seed * 7);
+          nz = gz + tremor * Math.sin(t * 2.8 + seed * 3);
+          break;
+        }
+      }
 
-      // Breathing effect
-      const breathe = 1 + 0.08 * Math.sin(t * 0.5 + i * 0.05);
+      // Global breathing
+      const breathe = 1 + 0.06 * Math.sin(t * 0.4 + i * 0.03);
       nx *= breathe;
       ny *= breathe;
       nz *= breathe;
 
-      // When colliding, compress inward
+      // Collision compression
       if (isColliding) {
-        const squeeze = 0.97;
-        nx *= squeeze;
-        ny *= squeeze;
-        nz *= squeeze;
+        nx *= 0.96;
+        ny *= 0.96;
+        nz *= 0.96;
       }
 
       posAttr.setXYZ(i, nx, ny, nz);
     }
     posAttr.needsUpdate = true;
 
-    // Pulse glow
+    // Pulse opacity
     const mat = meshRef.current.material as THREE.PointsMaterial;
     mat.opacity = 0.7 + 0.2 * Math.sin(t * 2);
   });
