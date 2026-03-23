@@ -8,6 +8,7 @@ import {
   Zap, Shuffle, ChevronRight, Star, Clock, Link2, Atom,
   Sparkles, ArrowRight, X, History, AlertTriangle,
 } from "lucide-react";
+import CollisionScene3D from "@/components/CollisionScene3D";
 import {
   THEORIES, DOMAINS, COLLISION_MODES, DOMAIN_COLORS, DOMAIN_CLASSES,
   getTheoriesByDomain,
@@ -29,30 +30,6 @@ interface CollisionResult {
   quality_score: number;
   reasoning: string;
   timestamp: number;
-}
-
-// ─── Collision Animation ─────────────────────────────────────
-function CollisionAnimation({ colorA, colorB }: { colorA: string; colorB: string }) {
-  return (
-    <div className="flex items-center justify-center py-12">
-      <div className="relative w-40 h-40">
-        {/* Circle A */}
-        <div
-          className="absolute w-16 h-16 rounded-full animate-collision-left"
-          style={{ background: `radial-gradient(circle, ${colorA}60, ${colorA}20)`, border: `2px solid ${colorA}`, boxShadow: `0 0 20px ${colorA}40` }}
-        />
-        {/* Circle B */}
-        <div
-          className="absolute right-0 w-16 h-16 rounded-full animate-collision-right"
-          style={{ background: `radial-gradient(circle, ${colorB}60, ${colorB}20)`, border: `2px solid ${colorB}`, boxShadow: `0 0 20px ${colorB}40` }}
-        />
-        {/* Center flash */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-8 h-8 rounded-full animate-collision-flash bg-white/0" />
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ─── Score Badge ─────────────────────────────────────────────
@@ -521,9 +498,16 @@ export default function CollisionEnginePage() {
             </div>
           )}
 
-          {/* Collision animation */}
-          {isColliding && (
-            <CollisionAnimation colorA={colorA} colorB={colorB} />
+          {/* 3D Particle Visualization */}
+          {(selectedTheories.length > 0 || isColliding) && (
+            <div className="mb-4 flex-shrink-0">
+              <CollisionScene3D
+                theoryA={selectedTheories[0] ?? null}
+                theoryB={selectedTheories[1] ?? null}
+                colliding={isColliding}
+                className="w-full h-72 rounded-lg overflow-hidden border border-border/50 bg-[hsl(225,50%,4%)]"
+              />
+            </div>
           )}
 
           {/* Result */}
