@@ -1,6 +1,6 @@
 import { useRef, useMemo, useEffect, useState, useCallback } from "react";
 import { Canvas, useFrame, useThree, ThreeEvent } from "@react-three/fiber";
-import { OrbitControls, Text, Line, Html } from "@react-three/drei";
+import { OrbitControls, Text, Line, Html, Stars } from "@react-three/drei";
 import * as THREE from "three";
 import type { CollisionTheory } from "@/data/collision-theories";
 
