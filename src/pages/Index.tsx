@@ -2,12 +2,13 @@ import { useState, useCallback } from "react";
 import { type Theory } from "@/data/theories";
 import { type CollisionResult } from "@/types/collision";
 import { TheoryLibrary } from "@/components/TheoryLibrary";
+
 import { CollisionZone } from "@/components/CollisionZone";
 import { CollisionHistory } from "@/components/CollisionHistory";
 
 const Index = () => {
   const [selected, setSelected] = useState<Theory[]>([]);
-  const [apiKey, setApiKey] = useState("");
+  
   const [history, setHistory] = useState<CollisionResult[]>([]);
   const [currentResult, setCurrentResult] = useState<CollisionResult | null>(null);
   const [isColliding, setIsColliding] = useState(false);
@@ -71,8 +72,6 @@ const Index = () => {
         <div className="flex-1 p-4 overflow-hidden flex flex-col min-w-0">
           <CollisionZone
             selected={selected}
-            apiKey={apiKey}
-            onApiKeyChange={setApiKey}
             onResult={handleResult}
             isColliding={isColliding}
             setIsColliding={setIsColliding}
