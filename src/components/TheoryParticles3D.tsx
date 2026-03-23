@@ -324,7 +324,7 @@ function Scene({
       {theoryA && (
         <>
           <AmbientParticles count={theoryA.factors.length * 8 + 15} color="#3b82f6" center={offsetA} phase={phase} />
-          <WireframeSphere center={offsetA} color="#3b82f6" />
+          
           <TheoryLabel text={theoryA.name} position={[offsetA[0], 2.3, 0]} color="#60a5fa" />
           {dotsA.map((d, i) => (
             <FactorDot
@@ -348,7 +348,7 @@ function Scene({
       {theoryB && (
         <>
           <AmbientParticles count={theoryB.factors.length * 8 + 15} color="#ef4444" center={offsetB} phase={phase} />
-          <WireframeSphere center={offsetB} color="#ef4444" />
+          
           <TheoryLabel text={theoryB.name} position={[offsetB[0], 2.3, 0]} color="#f87171" />
           {dotsB.map((d, i) => (
             <FactorDot
@@ -391,22 +391,6 @@ function Scene({
   );
 }
 
-// ─── Wireframe sphere outline ──────────────────────────────
-function WireframeSphere({ center, color }: { center: [number, number, number]; color: string }) {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame(({ clock }) => {
-    if (ref.current) {
-      ref.current.rotation.y = clock.elapsedTime * 0.15;
-      ref.current.rotation.x = Math.sin(clock.elapsedTime * 0.1) * 0.1;
-    }
-  });
-  return (
-    <mesh ref={ref} position={center}>
-      <sphereGeometry args={[1.8, 16, 16]} />
-      <meshBasicMaterial color={color} wireframe transparent opacity={0.1} />
-    </mesh>
-  );
-}
 
 // ─── Floating theory label ─────────────────────────────────
 function TheoryLabel({ text, position, color }: { text: string; position: [number, number, number]; color: string }) {
