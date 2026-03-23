@@ -13,7 +13,6 @@ const navItems = [
   { path: "/theories", label: "Theories", icon: Atom },
   { path: "/collisions", label: "Collisions", icon: Zap },
   { path: "/collision-engine", label: "Engine", icon: Sparkles },
-  { path: "/theory-collider-3d", label: "3D Collider", icon: Atom },
   { path: "/products", label: "Products", icon: Package },
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
   { path: "/settings", label: "Settings", icon: Settings },

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,6 @@ import {
   Zap, Shuffle, ChevronRight, Star, Clock, Link2, Atom,
   Sparkles, ArrowRight, X, History, AlertTriangle,
 } from "lucide-react";
-import CollisionScene3D from "@/components/CollisionScene3D";
 import {
   THEORIES, DOMAINS, COLLISION_MODES, DOMAIN_COLORS, DOMAIN_CLASSES,
   getTheoriesByDomain,
@@ -30,6 +29,30 @@ interface CollisionResult {
   quality_score: number;
   reasoning: string;
   timestamp: number;
+}
+
+// ─── Collision Animation ─────────────────────────────────────
+function CollisionAnimation({ colorA, colorB }: { colorA: string; colorB: string }) {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <div className="relative w-40 h-40">
+        {/* Circle A */}
+        <div
+          className="absolute w-16 h-16 rounded-full animate-collision-left"
+          style={{ background: `radial-gradient(circle, ${colorA}60, ${colorA}20)`, border: `2px solid ${colorA}`, boxShadow: `0 0 20px ${colorA}40` }}
+        />
+        {/* Circle B */}
+        <div
+          className="absolute right-0 w-16 h-16 rounded-full animate-collision-right"
+          style={{ background: `radial-gradient(circle, ${colorB}60, ${colorB}20)`, border: `2px solid ${colorB}`, boxShadow: `0 0 20px ${colorB}40` }}
+        />
+        {/* Center flash */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full animate-collision-flash bg-white/0" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── Score Badge ─────────────────────────────────────────────
@@ -107,18 +130,18 @@ function ResultCard({ result, compact, onClick }: { result: CollisionResult; com
     return (
       <div
         onClick={onClick}
-        className="px-3 py-2.5 rounded-lg border border-border/50 cursor-pointer hover:bg-white/[0.03] hover:border-border transition-all group overflow-hidden"
+        className="px-3 py-2.5 rounded-lg border border-border/50 cursor-pointer hover:bg-white/[0.03] hover:border-border transition-all group"
       >
-        <div className="flex items-center justify-between gap-2 mb-1 min-w-0">
-          <p className="text-xs font-semibold truncate flex-1 min-w-0 group-hover:text-cyan-400 transition-colors">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs font-semibold truncate flex-1 group-hover:text-cyan-400 transition-colors">
             {result.framework_name}
           </p>
           <ScoreBadge score={result.quality_score} />
         </div>
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground min-w-0">
-          <span className={`${dcA.text} truncate max-w-[40%]`}>{result.theoryA.name}</span>
-          <Zap className="w-2.5 h-2.5 text-amber-400 flex-shrink-0" />
-          <span className={`${dcB.text} truncate max-w-[40%]`}>{result.theoryB.name}</span>
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <span className={dcA.text}>{result.theoryA.name}</span>
+          <Zap className="w-2.5 h-2.5 text-amber-400" />
+          <span className={dcB.text}>{result.theoryB.name}</span>
         </div>
       </div>
     );
@@ -208,6 +231,8 @@ export default function CollisionEnginePage() {
   const [currentResult, setCurrentResult] = useState<CollisionResult | null>(null);
   const [history, setHistory] = useState<CollisionResult[]>([]);
   const [viewingResult, setViewingResult] = useState<CollisionResult | null>(null);
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem("zh_claude_api_key") ?? "");
+  const [apiKeyOpen, setApiKeyOpen] = useState(false);
   const [error, setError] = useState("");
   const resultRef = useRef<HTMLDivElement>(null);
 
@@ -221,6 +246,10 @@ export default function CollisionEnginePage() {
     [activeDomain],
   );
 
+  // Save API key
+  useEffect(() => {
+    if (apiKey) localStorage.setItem("zh_claude_api_key", apiKey);
+  }, [apiKey]);
 
   const handleSelect = useCallback((id: number) => {
     setSelectedIds(prev => {
@@ -249,6 +278,10 @@ export default function CollisionEnginePage() {
 
   const handleCollide = useCallback(async () => {
     if (selectedTheories.length !== 2) return;
+    if (!apiKey) {
+      setApiKeyOpen(true);
+      return;
+    }
 
     const [theoryA, theoryB] = selectedTheories;
     const mode = COLLISION_MODES.find(m => m.key === collisionMode)!;
@@ -258,25 +291,59 @@ export default function CollisionEnginePage() {
     setError("");
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/collide-theories`, {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
         },
         body: JSON.stringify({
-          theoryA: { name: theoryA.name, domain: theoryA.domain, core: theoryA.core, factors: theoryA.factors },
-          theoryB: { name: theoryB.name, domain: theoryB.domain, core: theoryB.core, factors: theoryB.factors },
-          collisionMode: { label: mode.label, labelCn: mode.labelCn, desc: mode.desc },
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1200,
+          messages: [{
+            role: "user",
+            content: `You are a cross-disciplinary synthesis engine. Given two theories from different domains, find deep structural connections and generate a novel framework.
+
+THEORY A: ${theoryA.name} (${theoryA.domain})
+Core: ${theoryA.core}
+Key factors: ${theoryA.factors.join(", ")}
+
+THEORY B: ${theoryB.name} (${theoryB.domain})
+Core: ${theoryB.core}
+Key factors: ${theoryB.factors.join(", ")}
+
+COLLISION MODE: ${mode.label} (${mode.labelCn}) — ${mode.desc}
+
+Respond ONLY in JSON (no markdown, no backticks):
+{
+  "framework_name": "A creative name for the new framework (English + Chinese)",
+  "core_insight": "2-3 sentences describing the novel insight from this collision",
+  "structural_similarities": ["list of 3-4 deep structural parallels found"],
+  "novel_connections": ["list of 2-3 genuinely surprising cross-domain links"],
+  "practical_applications": ["list of 2-3 concrete business/product applications"],
+  "quality_score": 7,
+  "reasoning": "1 sentence on why this collision is or isn't productive"
+}`,
+          }],
         }),
       });
 
       if (!res.ok) {
-        const errBody = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        throw new Error(errBody.error ?? `API error: ${res.status}`);
+        const errBody = await res.json().catch(() => ({ error: { message: `HTTP ${res.status}` } }));
+        throw new Error(errBody.error?.message ?? `API error: ${res.status}`);
       }
 
-      const parsed = await res.json();
+      const data = await res.json();
+      const text = data.content?.[0]?.text ?? "";
+
+      // Parse JSON from response (handle potential markdown wrapping)
+      let jsonStr = text.trim();
+      if (jsonStr.startsWith("```")) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      }
+      const parsed = JSON.parse(jsonStr);
 
       const result: CollisionResult = {
         id: crypto.randomUUID(),
@@ -299,7 +366,7 @@ export default function CollisionEnginePage() {
     } finally {
       setIsColliding(false);
     }
-  }, [selectedTheories, collisionMode]);
+  }, [selectedTheories, collisionMode, apiKey]);
 
   const handleChainCollide = useCallback((result: CollisionResult) => {
     // Create a virtual theory from the collision result
@@ -336,7 +403,16 @@ export default function CollisionEnginePage() {
             Select 2 theories from different domains, pick a collision mode, and discover novel frameworks
           </p>
         </div>
-        
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs h-7"
+            onClick={() => setApiKeyOpen(true)}
+          >
+            {apiKey ? "API Key Set" : "Set API Key"}
+          </Button>
+        </div>
       </div>
 
       {/* Three-panel layout */}
@@ -498,17 +574,9 @@ export default function CollisionEnginePage() {
             </div>
           )}
 
-          {/* 3D Particle Visualization */}
-          {(selectedTheories.length > 0 || isColliding) && (
-            <div className="mb-4 flex-shrink-0">
-              <CollisionScene3D
-                theoryA={selectedTheories[0] ?? null}
-                theoryB={selectedTheories[1] ?? null}
-                colliding={isColliding}
-                resultInsight={currentResult?.core_insight}
-                className="w-full h-[28rem] rounded-lg overflow-hidden border border-border/50 bg-[hsl(225,50%,4%)]"
-              />
-            </div>
+          {/* Collision animation */}
+          {isColliding && (
+            <CollisionAnimation colorA={colorA} colorB={colorB} />
           )}
 
           {/* Result */}
@@ -585,6 +653,33 @@ export default function CollisionEnginePage() {
         </DialogContent>
       </Dialog>
 
+      {/* API Key dialog */}
+      <Dialog open={apiKeyOpen} onOpenChange={setApiKeyOpen}>
+        <DialogContent className="bg-card border-card-border max-w-md">
+          <DialogHeader>
+            <DialogTitle>Claude API Key</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <p className="text-xs text-muted-foreground">
+              Enter your Anthropic API key to power theory collisions. The key is stored locally in your browser only.
+            </p>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              placeholder="sk-ant-..."
+              className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <Button
+              className="w-full bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-semibold"
+              onClick={() => setApiKeyOpen(false)}
+              disabled={!apiKey}
+            >
+              Save Key
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
