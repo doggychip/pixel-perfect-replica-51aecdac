@@ -546,6 +546,17 @@ Respond ONLY in JSON (no markdown, no backticks):
             </div>
           </div>
 
+          {/* Error */}
+          {error && (
+            <div className="flex items-start gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/30">
+              <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />
+              <div>
+                <h4 className="text-sm font-medium text-destructive">Collision Failed</h4>
+                <p className="text-xs text-destructive/80 mt-1">{error}</p>
+              </div>
+            </div>
+          )}
+
           {/* 3D Particle Visualization */}
           <Suspense fallback={<div className="w-full h-[300px] rounded-lg border border-border/30 bg-background/50 flex items-center justify-center"><Atom className="w-8 h-8 text-muted-foreground/30 animate-spin" /></div>}>
             <ParticleField
@@ -554,6 +565,17 @@ Respond ONLY in JSON (no markdown, no backticks):
               isColliding={isColliding}
             />
           </Suspense>
+
+          {/* Result */}
+          <div ref={resultRef}>
+            {currentResult && !isColliding && (
+              <Card className="neon-border bg-card/40">
+                <CardContent className="p-4">
+                  <ResultCard result={currentResult} />
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
 
         {/* ─── RIGHT: History ─── */}
