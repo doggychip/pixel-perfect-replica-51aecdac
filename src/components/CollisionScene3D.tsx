@@ -373,16 +373,25 @@ function ParticleCloud({
         <pointsMaterial color={threeColor} size={0.06} sizeAttenuation transparent opacity={0.5} />
       </points>
       {/* Factor dots with hover tooltips */}
-      {theory.factors.map((f, i) => (
-        <FactorDot
-          key={f}
-          factor={f}
-          position={factorPositions[i]}
-          color={color}
-          importance={factorImportances[i]}
-          visible={showDots}
-        />
-      ))}
+      {theory.factors.map((f, i) => {
+        const isHighlighted = highlightedFactor?.key === theoryKey && highlightedFactor?.idx === i;
+        const hasHighlight = highlightedFactor !== null;
+        return (
+          <FactorDot
+            key={f}
+            factor={f}
+            position={factorPositions[i]}
+            color={color}
+            importance={factorImportances[i]}
+            visible={showDots}
+            highlighted={isHighlighted}
+            dimmed={hasHighlight && !isHighlighted}
+            onSelect={onSelectFactor}
+            theoryKey={theoryKey}
+            factorIndex={i}
+          />
+        );
+      })}
       {/* Theory label */}
       {showDots && (
         <Billboard follow lockX={false} lockY={false} lockZ={false}>
