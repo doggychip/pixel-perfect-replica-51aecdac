@@ -5,17 +5,28 @@ import * as THREE from "three";
 import type { CollisionTheory } from "@/data/collision-theories";
 
 // ─── Helpers ───────────────────────────────────────────────
+type MotionPattern = "orbit" | "pulse" | "wave" | "spiral" | "jitter";
+
+// Classify factor type into a motion pattern
+function factorMotion(factor: string): MotionPattern {
+  const f = factor.toLowerCase();
+  if (/state|space|field|landscape|wavefunction|vacuum/.test(f)) return "orbit";
+  if (/probability|amplitude|weight|load|calibration|precision/.test(f)) return "pulse";
+  if (/collapse|measurement|observation|emergence|decoherence/.test(f)) return "wave";
+  if (/correlation|coupling|entangle|non-local|connection|social/.test(f)) return "spiral";
+  return "jitter"; // default for unknown types
+}
+
 // Map a factor string to pseudo-numeric dimensions for scatter placement
-function factorToCoords(factor: string, index: number, total: number): { x: number; y: number; z: number; weight: number } {
-  // Hash the factor name for deterministic placement
+function factorToCoords(factor: string, index: number, total: number): { x: number; y: number; z: number; weight: number; motion: MotionPattern } {
   let hash = 0;
   for (let i = 0; i < factor.length; i++) hash = ((hash << 5) - hash + factor.charCodeAt(i)) | 0;
-  const norm = (v: number) => ((v % 1000) / 1000); // 0..1
-  const complexity = norm(Math.abs(hash)) * 2 - 1;        // X axis
-  const abstraction = norm(Math.abs(hash >> 8)) * 2 - 1;  // Y axis
-  const breadth = norm(Math.abs(hash >> 16)) * 2 - 1;     // Z axis
-  const weight = 0.5 + norm(Math.abs(hash >> 4)) * 0.8;   // size weight 0.5..1.3
-  return { x: complexity, y: abstraction, z: breadth, weight };
+  const norm = (v: number) => ((v % 1000) / 1000);
+  const complexity = norm(Math.abs(hash)) * 2 - 1;
+  const abstraction = norm(Math.abs(hash >> 8)) * 2 - 1;
+  const breadth = norm(Math.abs(hash >> 16)) * 2 - 1;
+  const weight = 0.5 + norm(Math.abs(hash >> 4)) * 0.8;
+  return { x: complexity, y: abstraction, z: breadth, weight, motion: factorMotion(factor) };
 }
 
 type Phase = "idle" | "approach" | "explode" | "merge";
@@ -75,6 +86,7 @@ function FactorDot({
   onClick,
   phase,
   targetPosition,
+  motion = "jitter",
 }: {
   position: [number, number, number];
   color: string;
@@ -86,6 +98,7 @@ function FactorDot({
   onClick: (factor: string) => void;
   phase: Phase;
   targetPosition: [number, number, number];
+  motion?: MotionPattern;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const currentPos = useRef(new THREE.Vector3(...position));
@@ -97,11 +110,46 @@ function FactorDot({
 
     let target: THREE.Vector3;
     if (phase === "idle") {
-      target = new THREE.Vector3(
-        position[0] + Math.sin(t * 0.5 + size * 10) * 0.08,
-        position[1] + Math.cos(t * 0.4 + size * 7) * 0.08,
-        position[2] + Math.sin(t * 0.3 + size * 5) * 0.06,
-      );
+      const s = size * 10; // seed from size for variety
+      if (motion === "orbit") {
+        // Smooth circular orbit
+        target = new THREE.Vector3(
+          position[0] + Math.cos(t * 0.6 + s) * 0.18,
+          position[1] + Math.sin(t * 0.6 + s) * 0.18,
+          position[2] + Math.sin(t * 0.3 + s) * 0.05,
+        );
+      } else if (motion === "pulse") {
+        // Breathing in/out along radial
+        const breathe = 1 + Math.sin(t * 1.2 + s) * 0.12;
+        target = new THREE.Vector3(
+          position[0] * breathe,
+          position[1] * breathe,
+          position[2] * breathe,
+        );
+      } else if (motion === "wave") {
+        // Wave-like undulation on Y
+        target = new THREE.Vector3(
+          position[0] + Math.sin(t * 0.8 + s) * 0.05,
+          position[1] + Math.sin(t * 1.5 + position[0] * 3) * 0.2,
+          position[2],
+        );
+      } else if (motion === "spiral") {
+        // Spiraling path
+        const angle = t * 0.7 + s;
+        const r = 0.12;
+        target = new THREE.Vector3(
+          position[0] + Math.cos(angle) * r,
+          position[1] + Math.sin(angle) * r * 0.6,
+          position[2] + Math.sin(angle * 0.5) * r,
+        );
+      } else {
+        // jitter — quick random-ish jitter
+        target = new THREE.Vector3(
+          position[0] + Math.sin(t * 3 + s) * 0.06,
+          position[1] + Math.cos(t * 2.7 + s * 1.3) * 0.06,
+          position[2] + Math.sin(t * 2.3 + s * 0.7) * 0.04,
+        );
+      }
     } else if (phase === "approach") {
       target = new THREE.Vector3(...targetPosition).multiplyScalar(0.4);
     } else if (phase === "explode") {
@@ -313,7 +361,7 @@ function Scene({
     return theoryA.factors.map((f, i) => {
       const c = factorToCoords(f, i, theoryA.factors.length);
       const pos: [number, number, number] = [c.x * 1.5 + offsetA[0], c.y * 1.5 + offsetA[1], c.z * 1.5 + offsetA[2]];
-      return { pos, factor: f, weight: c.weight };
+      return { pos, factor: f, weight: c.weight, motion: c.motion };
     });
   }, [theoryA, offsetA[0]]);
 
@@ -322,7 +370,7 @@ function Scene({
     return theoryB.factors.map((f, i) => {
       const c = factorToCoords(f, i, theoryB.factors.length);
       const pos: [number, number, number] = [c.x * 1.5 + offsetB[0], c.y * 1.5 + offsetB[1], c.z * 1.5 + offsetB[2]];
-      return { pos, factor: f, weight: c.weight };
+      return { pos, factor: f, weight: c.weight, motion: c.motion };
     });
   }, [theoryB, offsetB[0]]);
 
@@ -360,6 +408,7 @@ function Scene({
               onHover={setHoveredFactor}
               onClick={setClickedFactor}
               phase={phase}
+              motion={d.motion}
             />
           ))}
         </>
@@ -384,6 +433,7 @@ function Scene({
               onHover={setHoveredFactor}
               onClick={setClickedFactor}
               phase={phase}
+              motion={d.motion}
             />
           ))}
         </>
