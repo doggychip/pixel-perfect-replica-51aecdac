@@ -75,21 +75,32 @@ function FactorDot({
   color,
   importance,
   visible,
+  highlighted,
+  dimmed,
+  onSelect,
+  theoryKey,
+  factorIndex,
 }: {
   factor: string;
   position: THREE.Vector3;
   color: string;
   importance: number;
   visible: boolean;
+  highlighted: boolean;
+  dimmed: boolean;
+  onSelect: (key: string, idx: number) => void;
+  theoryKey: "A" | "B";
+  factorIndex: number;
 }) {
   const [hovered, setHovered] = useState(false);
   const meshRef = useRef<THREE.Mesh>(null);
   const baseSize = 0.06 + importance * 0.12;
+  const active = highlighted || hovered;
 
   useFrame(({ clock }) => {
     if (!meshRef.current) return;
     const t = clock.getElapsedTime();
-    const pulse = hovered ? 1.4 : 1 + Math.sin(t * 2 + hashStr(factor)) * 0.05;
+    const pulse = active ? 1.6 : 1 + Math.sin(t * 2 + hashStr(factor)) * 0.05;
     meshRef.current.scale.setScalar(pulse);
   });
 
@@ -101,33 +112,41 @@ function FactorDot({
         ref={meshRef}
         onPointerOver={(e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); setHovered(true); }}
         onPointerOut={() => setHovered(false)}
+        onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onSelect(theoryKey, factorIndex); }}
       >
         <sphereGeometry args={[baseSize, 12, 8]} />
         <meshBasicMaterial
-          color={color}
+          color={highlighted ? "#facc15" : color}
           transparent
-          opacity={0.3 + importance * 0.6}
+          opacity={dimmed ? 0.12 : (0.3 + importance * 0.6)}
         />
       </mesh>
       {/* Glow ring */}
       <mesh rotation={[Math.PI / 2, 0, 0]}>
         <ringGeometry args={[baseSize * 1.2, baseSize * 1.5, 16]} />
-        <meshBasicMaterial color={color} transparent opacity={hovered ? 0.4 : 0.08} side={THREE.DoubleSide} />
+        <meshBasicMaterial color={highlighted ? "#facc15" : color} transparent opacity={active ? 0.5 : dimmed ? 0.02 : 0.08} side={THREE.DoubleSide} />
       </mesh>
-      {/* Tooltip on hover */}
-      {hovered && (
+      {/* Highlight outer ring */}
+      {highlighted && (
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[baseSize * 1.8, baseSize * 2.2, 24]} />
+          <meshBasicMaterial color="#facc15" transparent opacity={0.3} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+      {/* Tooltip on hover or highlight */}
+      {(hovered || highlighted) && (
         <Html distanceFactor={8} center style={{ pointerEvents: "none" }}>
           <div style={{
             background: "rgba(15, 23, 42, 0.95)",
-            border: `1px solid ${color}40`,
+            border: `1px solid ${highlighted ? "#facc15" : color}40`,
             borderRadius: 6,
             padding: "4px 10px",
             whiteSpace: "nowrap",
             fontSize: 11,
             color: "#e2e8f0",
-            boxShadow: `0 0 12px ${color}30`,
+            boxShadow: `0 0 12px ${highlighted ? "#facc15" : color}30`,
           }}>
-            <span style={{ color, fontWeight: 600 }}>{factor}</span>
+            <span style={{ color: highlighted ? "#facc15" : color, fontWeight: 600 }}>{factor}</span>
             <span style={{ color: "#94a3b8", marginLeft: 6, fontSize: 10 }}>
               w={importance.toFixed(2)}
             </span>
