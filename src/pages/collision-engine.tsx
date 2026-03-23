@@ -303,8 +303,8 @@ export default function CollisionEnginePage() {
         theoryB,
         mode: collisionMode,
         modeLabel: mode.label,
-        ...parsed,
-        quality_score: Math.min(10, Math.max(1, Math.round(parsed.quality_score ?? 5))),
+        ..._parsed,
+        quality_score: Math.min(10, Math.max(1, Math.round(_parsed.quality_score ?? 5))),
         timestamp: Date.now(),
       };
 
