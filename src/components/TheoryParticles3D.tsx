@@ -31,48 +31,6 @@ function factorToCoords(factor: string, index: number, total: number): { x: numb
 
 type Phase = "idle" | "approach" | "explode" | "merge";
 
-// ─── 3D Axes with labels ───────────────────────────────────
-function Axes() {
-  const axisLength = 2.8;
-  const labelOffset = 0.35;
-  const axes: { dir: [number, number, number]; label: string; color: string }[] = [
-    { dir: [1, 0, 0], label: "Complexity", color: "#64748b" },
-    { dir: [0, 1, 0], label: "Abstraction", color: "#64748b" },
-    { dir: [0, 0, 1], label: "Domain Breadth", color: "#64748b" },
-  ];
-
-  return (
-    <group>
-      {axes.map(({ dir, label, color }) => {
-        const end: [number, number, number] = [dir[0] * axisLength, dir[1] * axisLength, dir[2] * axisLength];
-        const negEnd: [number, number, number] = [-dir[0] * axisLength, -dir[1] * axisLength, -dir[2] * axisLength];
-        const labelPos: [number, number, number] = [
-          dir[0] * (axisLength + labelOffset),
-          dir[1] * (axisLength + labelOffset),
-          dir[2] * (axisLength + labelOffset),
-        ];
-        return (
-          <group key={label}>
-            <Line points={[negEnd, end]} color={color} lineWidth={1} transparent opacity={0.3} />
-            {/* Tick marks */}
-            {[-2, -1, 1, 2].map(v => {
-              const pos: [number, number, number] = [dir[0] * v, dir[1] * v, dir[2] * v];
-              return (
-                <mesh key={v} position={pos}>
-                  <sphereGeometry args={[0.02, 6, 6]} />
-                  <meshBasicMaterial color={color} transparent opacity={0.4} />
-                </mesh>
-              );
-            })}
-            <Text position={labelPos} fontSize={0.15} color={color} anchorX="center" anchorY="middle">
-              {label}
-            </Text>
-          </group>
-        );
-      })}
-    </group>
-  );
-}
 
 // ─── Factor Dot (single interactive dot) ───────────────────
 function FactorDot({
@@ -387,7 +345,7 @@ function Scene({
       <pointLight position={[5, 5, 5]} intensity={0.8} />
       <pointLight position={[-5, -5, -5]} intensity={0.4} color="#6366f1" />
 
-      <Axes />
+      
 
       {/* Theory A: blue factor dots + ambient particles */}
       {theoryA && (
@@ -548,12 +506,6 @@ export default function TheoryParticles3D({
             <span className="text-[10px] text-red-400/80 font-medium">{theoryB.name}</span>
           </div>
         )}
-      </div>
-      <div className="absolute top-3 right-3 pointer-events-none text-[9px] text-muted-foreground/50 text-right leading-relaxed">
-        <p>X: Complexity</p>
-        <p>Y: Abstraction</p>
-        <p>Z: Domain Breadth</p>
-        <p className="mt-1 text-muted-foreground/30">Dot size = importance weight</p>
       </div>
     </div>
   );
