@@ -15,6 +15,7 @@ import SettingsPage from "@/pages/settings";
 import TheoriesPage from "@/pages/theories";
 import CollisionsPage from "@/pages/collisions";
 import CollisionEnginePage from "@/pages/collision-engine";
+import TheoryCollider3DPage from "@/pages/theory-collider-3d";
 import { useEffect, useState, createContext, useContext } from "react";
 
 const ThemeContext = createContext<{ dark: boolean; toggle: () => void }>({ dark: true, toggle: () => {} });
