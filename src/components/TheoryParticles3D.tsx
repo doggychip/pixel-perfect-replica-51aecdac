@@ -370,7 +370,7 @@ function Scene({
     return theoryB.factors.map((f, i) => {
       const c = factorToCoords(f, i, theoryB.factors.length);
       const pos: [number, number, number] = [c.x * 1.5 + offsetB[0], c.y * 1.5 + offsetB[1], c.z * 1.5 + offsetB[2]];
-      return { pos, factor: f, weight: c.weight };
+      return { pos, factor: f, weight: c.weight, motion: c.motion };
     });
   }, [theoryB, offsetB[0]]);
 
