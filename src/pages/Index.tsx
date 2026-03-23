@@ -72,8 +72,6 @@ const Index = () => {
         <div className="flex-1 p-4 overflow-hidden flex flex-col min-w-0">
           <CollisionZone
             selected={selected}
-            apiKey={apiKey}
-            onApiKeyChange={setApiKey}
             onResult={handleResult}
             isColliding={isColliding}
             setIsColliding={setIsColliding}
