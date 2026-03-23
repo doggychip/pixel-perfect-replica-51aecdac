@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import {
   getTheoriesByDomain,
   type CollisionTheory, type DomainKey, type CollisionMode,
 } from "@/data/collision-theories";
+
+const ParticleField = lazy(() => import("@/components/ParticleField"));
 
 // ─── Types ───────────────────────────────────────────────────
 interface CollisionResult {
