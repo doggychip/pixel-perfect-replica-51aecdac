@@ -219,47 +219,6 @@ function ConnectingArcs({
   );
 }
 
-// ─── Ambient Particles ─────────────────────────────────────
-function AmbientParticles({ count, color, center, phase }: { count: number; color: string; center: [number, number, number]; phase: Phase }) {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-  const positions = useMemo(() => {
-    const p: [number, number, number][] = [];
-    for (let i = 0; i < count; i++) {
-      const phi = Math.acos(2 * Math.random() - 1);
-      const theta = Math.random() * Math.PI * 2;
-      const r = 1.0 + Math.random() * 0.8;
-      p.push([r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi)]);
-    }
-    return p;
-  }, [count]);
-  const dummy = useMemo(() => new THREE.Object3D(), []);
-
-  useFrame(({ clock }) => {
-    if (!meshRef.current) return;
-    const t = clock.elapsedTime;
-    for (let i = 0; i < count; i++) {
-      const bp = positions[i];
-      let x = bp[0] + Math.sin(t * 0.3 + i) * 0.1;
-      let y = bp[1] + Math.cos(t * 0.25 + i) * 0.1;
-      let z = bp[2];
-      if (phase === "approach") { x *= 0.5; y *= 0.5; z *= 0.5; }
-      else if (phase === "merge") { x *= 0.2; y *= 0.2; z *= 0.2; }
-      dummy.position.set(x + center[0], y + center[1], z + center[2]);
-      dummy.scale.setScalar(0.025);
-      dummy.updateMatrix();
-      meshRef.current.setMatrixAt(i, dummy.matrix);
-    }
-    meshRef.current.instanceMatrix.needsUpdate = true;
-  });
-
-  return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
-      <sphereGeometry args={[1, 6, 6]} />
-      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.4} transparent opacity={0.35} />
-    </instancedMesh>
-  );
-}
-
 // ─── Collision Fireworks ───────────────────────────────────
 function CollisionFireworks({ active }: { active: boolean }) {
   const COUNT = 60;
@@ -389,7 +348,6 @@ function Scene({
       {/* Theory A */}
       {theoryA && (
         <>
-          <AmbientParticles count={theoryA.factors.length * 8 + 15} color="#3b82f6" center={offsetA} phase={phase} />
           <TheoryLabel text={theoryA.name} position={[offsetA[0], 2.3, 0]} color="#60a5fa" />
           {dotsA.map((d, i) => (
             <FactorDot key={`a-${i}`} position={d.pos} targetPosition={d.pos}
@@ -405,7 +363,6 @@ function Scene({
       {/* Theory B */}
       {theoryB && (
         <>
-          <AmbientParticles count={theoryB.factors.length * 8 + 15} color="#ef4444" center={offsetB} phase={phase} />
           <TheoryLabel text={theoryB.name} position={[offsetB[0], 2.3, 0]} color="#f87171" />
           {dotsB.map((d, i) => (
             <FactorDot key={`b-${i}`} position={d.pos} targetPosition={d.pos}
