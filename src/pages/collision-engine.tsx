@@ -351,16 +351,10 @@ export default function CollisionEnginePage() {
             Select 2 theories from different domains, pick a collision mode, and discover novel frameworks
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs h-7"
-            onClick={() => setApiKeyOpen(true)}
-          >
-            {apiKey ? "API Key Set" : "Set API Key"}
-          </Button>
-        </div>
+        <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-400/30 bg-emerald-400/10">
+          <Sparkles className="w-3 h-3 mr-1" />
+          Powered by Lovable AI
+        </Badge>
       </div>
 
       {/* Three-panel layout */}
