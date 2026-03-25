@@ -233,7 +233,6 @@ export default function CollisionEnginePage() {
   const [history, setHistory] = useState<CollisionResult[]>([]);
   const [viewingResult, setViewingResult] = useState<CollisionResult | null>(null);
   const [apiKey] = useState("lovable-ai"); // Using Lovable AI - no key needed
-  const [apiKeyOpen, setApiKeyOpen] = useState(false);
   const [error, setError] = useState("");
   const resultRef = useRef<HTMLDivElement>(null);
 
