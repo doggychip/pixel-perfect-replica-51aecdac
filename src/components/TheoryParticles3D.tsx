@@ -252,10 +252,10 @@ function NebulaCloud({
 
       dummy.position.set(x + offsetX, y, z);
 
-      let particleScale = 0.025;
-      if (phase === "collide") particleScale = 0.025 * (1 + phaseProgress * 0.4);
-      if (phase === "explode") particleScale = 0.03 * (1 - phaseProgress * 0.4);
-      if (phase === "merge" || phase === "unified") particleScale = 0.025 * (1 - phaseProgress * 0.8);
+      let particleScale = 0.04;
+      if (phase === "collide") particleScale = 0.045 * (1 + phaseProgress * 0.4);
+      if (phase === "explode") particleScale = 0.05 * (1 - phaseProgress * 0.4);
+      if (phase === "merge" || phase === "unified") particleScale = 0.04 * (1 - phaseProgress * 0.8);
 
       dummy.scale.setScalar(Math.max(0.001, particleScale));
       dummy.updateMatrix();
