@@ -213,10 +213,10 @@ export default function ParticleSwarm({
         <meshBasicMaterial color={domainColor} transparent opacity={0.2} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
 
-      {/* Core glowing sphere - bright and visible */}
+      {/* Core glowing sphere - domain colored */}
       <mesh ref={glowRef} position={nodePos}>
         <sphereGeometry args={[0.28, 24, 24]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.95} />
+        <meshBasicMaterial color={domainColor} transparent opacity={0.95} />
       </mesh>
 
       {/* Second glow layer with domain color */}
