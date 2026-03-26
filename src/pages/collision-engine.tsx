@@ -503,16 +503,28 @@ export default function CollisionEnginePage() {
               <CardContent className="p-4">
                 {selectedTheories[1] ? (
                   <>
+                    <div className="h-[140px] -mx-2 -mt-2 mb-2 rounded-md overflow-hidden bg-black/30">
+                      <TheoryParticlePreview theory={selectedTheories[1]} side="right" />
+                    </div>
                     <Badge variant="outline" className={`text-[10px] mb-2 ${DOMAIN_CLASSES[selectedTheories[1].domain as DomainKey].text} ${DOMAIN_CLASSES[selectedTheories[1].domain as DomainKey].border} ${DOMAIN_CLASSES[selectedTheories[1].domain as DomainKey].bg}`}>
                       {selectedTheories[1].domain}
                     </Badge>
                     <h3 className="text-sm font-semibold mb-0.5">{selectedTheories[1].name}</h3>
                     <p className="text-[10px] text-muted-foreground mb-0.5">{selectedTheories[1].nameCn}</p>
-                    <p className="text-xs text-muted-foreground/70 leading-relaxed">{selectedTheories[1].core}</p>
+                    <p className="text-xs text-muted-foreground/70 leading-relaxed line-clamp-2">{selectedTheories[1].core}</p>
+                    <div className="flex items-center gap-1 mt-1.5 text-[9px] text-red-400/70">
+                      <span>{Math.min(400, 80 + selectedTheories[1].factors.length * 60)} particles</span>
+                      <span className="text-muted-foreground/30">·</span>
+                      <span>{selectedTheories[1].factors.length} factors</span>
+                    </div>
                   </>
                 ) : (
-                  <div className="text-center py-4">
+                  <div className="text-center py-8">
+                    <div className="w-10 h-10 rounded-full border border-dashed border-red-500/30 mx-auto mb-2 flex items-center justify-center">
+                      <div className="w-2 h-2 rounded-full bg-red-500/40 animate-pulse" />
+                    </div>
                     <p className="text-xs text-muted-foreground">Select Theory B</p>
+                    <p className="text-[9px] text-red-400/40 mt-0.5">Red particles</p>
                   </div>
                 )}
               </CardContent>
