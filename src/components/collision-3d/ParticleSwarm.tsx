@@ -152,20 +152,12 @@ export default function ParticleSwarm({
           y = y + (collisionPoint.y - y) * individualT + curveOffset * 0.32;
           z = z + (collisionPoint.z - z) * individualT;
         }
-      } else if (phase === "collide" || phase === "explode") {
-        const converge = phase === "collide" ? phaseProgress : 1;
-        const explodeForce = phase === "explode" ? phaseProgress * 3.2 * p.orbitSpeed : 0;
-
+      } else if (phase === "collide") {
+        // Particles converge smoothly to center for merging
+        const converge = phaseProgress;
         x = x * (1 - converge) + collisionPoint.x * converge;
         y = y * (1 - converge) + collisionPoint.y * converge;
         z = z * (1 - converge) + collisionPoint.z * converge;
-
-        if (explodeForce > 0) {
-          const dir = p.basePos.clone().normalize();
-          x += dir.x * explodeForce;
-          y += dir.y * explodeForce;
-          z += dir.z * explodeForce;
-        }
       } else if (phase === "emerge") {
         const fadeOut = Math.min(phaseProgress * 2, 1);
         const shrink = 1 - fadeOut;
