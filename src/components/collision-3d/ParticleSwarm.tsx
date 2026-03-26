@@ -5,7 +5,7 @@ import * as THREE from "three";
 import type { CollisionTheory, DomainKey } from "@/data/collision-theories";
 import { DOMAIN_COLORS } from "@/data/collision-theories";
 
-type Phase = "idle" | "beam" | "collide" | "explode" | "emerge";
+type Phase = "idle" | "beam" | "collide" | "emerge";
 
 interface SwarmParticle {
   basePos: THREE.Vector3;
