@@ -549,6 +549,7 @@ export default function CollisionEnginePage() {
               theoryB={selectedTheories[1]}
               isColliding={isColliding}
               hasResult={!!currentResult}
+              emergentName={currentResult?.framework_name}
             />
           </div>
 
