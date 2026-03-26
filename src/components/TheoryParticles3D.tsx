@@ -135,13 +135,16 @@ function NebulaCloud({
   const color = useMemo(() => new THREE.Color(DOMAIN_COLORS[theory.domain as DomainKey] ?? "#888"), [theory]);
   const idleOffsetX = side === "left" ? -2.2 : 2.2;
 
+  const totalParticleCount = Math.min(400, 80 + theory.factors.length * 60);
+
   const particles = useMemo(() => {
+    const count = Math.min(400, 80 + theory.factors.length * 60);
     const pts: { pos: THREE.Vector3; coreIdx: number; speed: number; motion: number; phase: number }[] = [];
     const factorCores = theory.factors.map((f, i) => ({
       pos: factorToPosition(f, i, theory.factors.length),
       motion: getMotionType(f),
     }));
-    const countPerCore = Math.floor(250 / Math.max(theory.factors.length, 1));
+    const countPerCore = Math.floor(count / Math.max(theory.factors.length, 1));
 
     factorCores.forEach((core, ci) => {
       for (let j = 0; j < countPerCore; j++) {
@@ -249,10 +252,10 @@ function NebulaCloud({
 
       dummy.position.set(x + offsetX, y, z);
 
-      let particleScale = 0.025;
-      if (phase === "collide") particleScale = 0.025 * (1 + phaseProgress * 0.4);
-      if (phase === "explode") particleScale = 0.03 * (1 - phaseProgress * 0.4);
-      if (phase === "merge" || phase === "unified") particleScale = 0.025 * (1 - phaseProgress * 0.8);
+      let particleScale = 0.04;
+      if (phase === "collide") particleScale = 0.045 * (1 + phaseProgress * 0.4);
+      if (phase === "explode") particleScale = 0.05 * (1 - phaseProgress * 0.4);
+      if (phase === "merge" || phase === "unified") particleScale = 0.04 * (1 - phaseProgress * 0.8);
 
       dummy.scale.setScalar(Math.max(0.001, particleScale));
       dummy.updateMatrix();
@@ -296,23 +299,48 @@ function NebulaCloud({
         />
       </instancedMesh>
 
+      {/* Theory name + particle count label */}
+      {showLabels && (
+        <Html position={[idleOffsetX, -1.8, 0]} center>
+          <div className="text-center pointer-events-none select-none">
+            <div className="text-xs font-bold" style={{ color: `#${color.getHexString()}` }}>
+              {theory.name}
+            </div>
+            <div className="text-[10px] text-white/50 mt-0.5">
+              {totalParticleCount} particles · {theory.factors.length} factors
+            </div>
+            <div className="flex flex-wrap justify-center gap-1 mt-1 max-w-[180px]">
+              {theory.factors.map((f, i) => {
+                const motionLabels = ["wave", "orbital", "pulse", "spiral", "chaos", "lattice"];
+                const motionType = motionLabels[getMotionType(f)] || "lattice";
+                return (
+                  <span key={f} className="text-[8px] px-1 py-0.5 rounded bg-white/10 text-white/60">
+                    {f} <span className="text-white/30">({motionType})</span>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </Html>
+      )}
+
       {showLabels && factorPositions.map(({ name, pos }) => (
         <group key={name} position={[pos.x + idleOffsetX, pos.y, pos.z]}>
           <mesh>
-            <sphereGeometry args={[0.05, 16, 16]} />
+            <sphereGeometry args={[0.06, 16, 16]} />
             <meshBasicMaterial
               color={activeFactor === name ? "#f59e0b" : color}
               transparent
-              opacity={activeFactor === name ? 1 : 0.5}
+              opacity={activeFactor === name ? 1 : 0.6}
             />
           </mesh>
           {activeFactor === name && (
             <mesh>
-              <ringGeometry args={[0.08, 0.11, 32]} />
+              <ringGeometry args={[0.09, 0.12, 32]} />
               <meshBasicMaterial color="#f59e0b" transparent opacity={0.8} side={THREE.DoubleSide} />
             </mesh>
           )}
-          <Html position={[0, 0.14, 0]} center style={{ pointerEvents: "auto" }}>
+          <Html position={[0, 0.16, 0]} center style={{ pointerEvents: "auto" }}>
             <div
               className="px-1.5 py-0.5 text-[9px] rounded bg-black/70 border border-white/10 text-white/80 whitespace-nowrap cursor-pointer select-none hover:text-amber-300 transition-colors"
               onMouseEnter={() => onFactorHover(name)}
