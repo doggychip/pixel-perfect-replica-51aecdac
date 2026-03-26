@@ -271,7 +271,6 @@ function TheoriesGrid({ search, onCompare, isComparable, isSelected }: {
                       <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   </div>
-                  </div>
                   {t.equation && (
                     <code className="text-[11px] text-muted-foreground font-mono block mb-2 truncate">
                       {t.equation}
