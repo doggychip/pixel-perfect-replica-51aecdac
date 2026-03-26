@@ -61,8 +61,8 @@ export default function ParticleSwarm({
     theory.factors.forEach((_, fi) => {
       const coreAngle = (fi / theory.factors.length) * Math.PI * 2;
       for (let j = 0; j < perFactor; j++) {
-        const r = 0.55 + Math.random() * 1.35;
-        const isLarge = Math.random() < 0.18;
+        const r = 0.6 + Math.random() * 1.4;
+        const isLarge = Math.random() < 0.2;
         pts.push({
           basePos: new THREE.Vector3(
             Math.cos(coreAngle + (Math.random() - 0.5) * 1.8) * r,
@@ -72,7 +72,7 @@ export default function ParticleSwarm({
           orbitRadius: 0.08 + Math.random() * 0.2,
           orbitSpeed: 0.5 + Math.random() * 1.8,
           orbitPhase: Math.random() * Math.PI * 2,
-          size: isLarge ? 0.05 + Math.random() * 0.03 : 0.02 + Math.random() * 0.018,
+          size: isLarge ? 0.06 + Math.random() * 0.04 : 0.028 + Math.random() * 0.022,
           factorIdx: fi,
         });
       }
@@ -205,19 +205,28 @@ export default function ParticleSwarm({
 
   return (
     <group>
+      {/* Outer halo - large and soft */}
       <mesh ref={haloRef} position={nodePos}>
-        <sphereGeometry args={[0.42, 24, 24]} />
-        <meshBasicMaterial color={domainColor} transparent opacity={0.16} blending={THREE.AdditiveBlending} depthWrite={false} />
+        <sphereGeometry args={[0.55, 24, 24]} />
+        <meshBasicMaterial color={domainColor} transparent opacity={0.2} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
 
+      {/* Core glowing sphere - bright and visible */}
       <mesh ref={glowRef} position={nodePos}>
-        <sphereGeometry args={[1, 24, 24]} />
-        <meshBasicMaterial color={domainColor} transparent opacity={0.95} blending={THREE.AdditiveBlending} />
+        <sphereGeometry args={[0.28, 24, 24]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.95} />
       </mesh>
 
+      {/* Second glow layer with domain color */}
+      <mesh position={nodePos}>
+        <sphereGeometry args={[0.35, 24, 24]} />
+        <meshBasicMaterial color={domainColor} transparent opacity={0.7} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+
+      {/* Particle swarm - using NormalBlending for guaranteed visibility */}
       <instancedMesh ref={meshRef} args={[undefined, undefined, particles.length]}>
-        <sphereGeometry args={[1, 5, 5]} />
-        <meshBasicMaterial transparent opacity={0.92} blending={THREE.AdditiveBlending} depthWrite={false} vertexColors />
+        <sphereGeometry args={[1, 6, 6]} />
+        <meshBasicMaterial transparent opacity={1} depthWrite={false} vertexColors />
       </instancedMesh>
 
       {showLabels && (
