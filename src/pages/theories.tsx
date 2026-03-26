@@ -4,10 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Atom, ChevronRight, Zap, BookOpen } from "lucide-react";
+import { Search, Atom, ChevronRight, Zap, BookOpen, Eye, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import theoriesData from "@/data/theories.json";
 import skeletonsData from "@/data/skeletons.json";
 import historicalData from "@/data/historical.json";
+import { THEORIES as COLLISION_THEORIES } from "@/data/collision-theories";
+import type { CollisionTheory } from "@/data/collision-theories";
+import TheoryCompare3D from "@/components/TheoryCompare3D";
 
 type Theory = {
   id: string;
