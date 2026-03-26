@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import type { CollisionTheory, DomainKey } from "@/data/collision-theories";
 import { DOMAIN_COLORS } from "@/data/collision-theories";
 
-type Phase = "idle" | "beam" | "collide" | "explode" | "emerge";
+type Phase = "idle" | "beam" | "collide" | "emerge";
 
 export default function HUD({
   theoryA,
