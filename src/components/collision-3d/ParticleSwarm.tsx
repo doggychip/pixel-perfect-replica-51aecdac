@@ -88,7 +88,7 @@ export default function ParticleSwarm({
 
     if (glowRef.current) {
       const pulse = 1 + Math.sin(t * 2) * 0.08;
-      const opacity = phase === "explode" || phase === "emerge" ? Math.max(0.15, 1 - phaseProgress) : 1;
+      const opacity = phase === "emerge" ? Math.max(0.15, 1 - phaseProgress) : 1;
       glowRef.current.scale.setScalar(0.32 * pulse);
       (glowRef.current.material as THREE.MeshBasicMaterial).opacity = 0.95 * opacity;
     }
