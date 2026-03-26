@@ -25,8 +25,7 @@ export default function HUD({
   const collisionEnergy = useMemo(() => {
     if (phase === "idle") return 0;
     if (phase === "beam") return Math.round(phaseProgress * 40);
-    if (phase === "collide") return 40 + Math.round(phaseProgress * 55);
-    if (phase === "explode") return 95 + Math.round(phaseProgress * 5);
+    if (phase === "collide") return 40 + Math.round(phaseProgress * 60);
     return 100;
   }, [phase, phaseProgress]);
 
