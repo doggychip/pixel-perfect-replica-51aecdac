@@ -170,8 +170,7 @@ export default function ParticleSwarm({
 
       dummy.position.set(x, y, z);
       let scale = p.size;
-      if (phase === "collide") scale *= 1 + phaseProgress * 0.6;
-      if (phase === "explode") scale *= Math.max(0.28, 1 - phaseProgress * 0.6);
+      if (phase === "collide") scale *= 1 + phaseProgress * 0.3;
       dummy.scale.setScalar(Math.max(0.001, scale));
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);

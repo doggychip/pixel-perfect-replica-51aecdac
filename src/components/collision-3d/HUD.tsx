@@ -32,8 +32,7 @@ export default function HUD({
   const phaseLabel = {
     idle: "STANDBY",
     beam: "⚡ BEAM ACCELERATING",
-    collide: "💥 COLLISION IN PROGRESS",
-    explode: "🌟 IMPACT DETECTED",
+    collide: "🌀 MERGING",
     emerge: "✨ EMERGENCE FORMING",
   }[phase];
 
