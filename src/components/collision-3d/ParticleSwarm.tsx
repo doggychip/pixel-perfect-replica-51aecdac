@@ -81,8 +81,6 @@ export default function ParticleSwarm({
   }, [theory, COUNT]);
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
-  const tempColor = useMemo(() => new THREE.Color(), []);
-  const white = useMemo(() => new THREE.Color("#ffffff"), []);
 
   useFrame(({ clock }) => {
     if (!meshRef.current) return;
@@ -175,8 +173,6 @@ export default function ParticleSwarm({
         dummy.scale.setScalar(Math.max(0.001, p.size * shrink));
         dummy.updateMatrix();
         meshRef.current.setMatrixAt(i, dummy.matrix);
-        tempColor.copy(domainColor).multiplyScalar(1 - fadeOut * 0.8);
-        meshRef.current.setColorAt(i, tempColor);
         continue;
       }
 
@@ -187,20 +183,9 @@ export default function ParticleSwarm({
       dummy.scale.setScalar(Math.max(0.001, scale));
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);
-
-      tempColor.copy(domainColor);
-      if (phase === "beam") tempColor.lerp(white, Math.min(phaseProgress * 2, 1) * 0.2);
-      if (phase === "collide" || phase === "explode") tempColor.lerp(white, phaseProgress * 0.4);
-      // Shimmer that preserves hue - brighten proportionally
-      const shimmer = 1 + Math.sin(t * 4 + i * 0.5) * 0.15;
-      tempColor.r = Math.min(1, tempColor.r * shimmer);
-      tempColor.g = Math.min(1, tempColor.g * shimmer);
-      tempColor.b = Math.min(1, tempColor.b * shimmer);
-      meshRef.current.setColorAt(i, tempColor);
     }
 
     meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
   });
 
   const showLabels = phase === "idle";
@@ -225,11 +210,29 @@ export default function ParticleSwarm({
         <meshBasicMaterial color={domainColor} transparent opacity={0.7} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
 
-      {/* Particle swarm - using NormalBlending for guaranteed visibility */}
+      {/* Particle swarm - explicit theory color to avoid black instanced vertex colors */}
       <instancedMesh ref={meshRef} args={[undefined, undefined, particles.length]}>
         <sphereGeometry args={[1, 6, 6]} />
-        <meshBasicMaterial transparent opacity={1} depthWrite={false} vertexColors />
+        <meshBasicMaterial color={domainColor} transparent opacity={0.95} depthWrite={false} />
       </instancedMesh>
+
+      {showLabels && (
+        <Html position={[nodePos.x, nodePos.y - 2.2, nodePos.z]} center>
+          <div className="text-center pointer-events-none select-none">
+            <div
+              className="text-sm font-bold px-3 py-1.5 rounded-lg bg-black/80 border border-white/10 backdrop-blur-sm"
+              style={{ color: `#${domainColor.getHexString()}`, textShadow: `0 0 10px #${domainColor.getHexString()}60` }}
+            >
+              {theory.name}
+            </div>
+            <div className="text-[10px] text-white/45 mt-1 font-mono">
+              {particles.length} particles · {theory.factors.length} factors
+            </div>
+          </div>
+        </Html>
+      )}
+    </group>
+  );
 
       {showLabels && (
         <Html position={[nodePos.x, nodePos.y - 2.2, nodePos.z]} center>

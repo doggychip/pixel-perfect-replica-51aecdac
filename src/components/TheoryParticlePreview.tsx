@@ -45,7 +45,6 @@ function ParticleCloud({ theory, color }: { theory: CollisionTheory; color: stri
   }, [theory]);
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
-  const tempColor = useMemo(() => new THREE.Color(), []);
 
   useFrame(({ clock }) => {
     if (!meshRef.current) return;
@@ -69,20 +68,14 @@ function ParticleCloud({ theory, color }: { theory: CollisionTheory; color: stri
       dummy.scale.setScalar(0.04);
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);
-
-      // Bright color for dark mode visibility
-      const brightness = 1.0 + Math.sin(t * 2 + i * 0.3) * 0.15;
-      tempColor.copy(threeColor).multiplyScalar(brightness);
-      meshRef.current.setColorAt(i, tempColor);
     }
     meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
   });
 
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, particles.length]}>
       <sphereGeometry args={[1, 6, 6]} />
-      <meshBasicMaterial transparent opacity={1} depthWrite={false} vertexColors />
+      <meshBasicMaterial color={color} transparent opacity={0.95} depthWrite={false} />
     </instancedMesh>
   );
 }
