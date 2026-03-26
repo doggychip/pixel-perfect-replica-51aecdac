@@ -5,7 +5,7 @@ import * as THREE from "three";
 import type { CollisionTheory, DomainKey } from "@/data/collision-theories";
 import { DOMAIN_COLORS } from "@/data/collision-theories";
 
-type Phase = "idle" | "beam" | "collide" | "explode" | "emerge";
+type Phase = "idle" | "beam" | "collide" | "emerge";
 
 interface SwarmParticle {
   basePos: THREE.Vector3;
@@ -88,7 +88,7 @@ export default function ParticleSwarm({
 
     if (glowRef.current) {
       const pulse = 1 + Math.sin(t * 2) * 0.08;
-      const opacity = phase === "explode" || phase === "emerge" ? Math.max(0.15, 1 - phaseProgress) : 1;
+      const opacity = phase === "emerge" ? Math.max(0.15, 1 - phaseProgress) : 1;
       glowRef.current.scale.setScalar(0.32 * pulse);
       (glowRef.current.material as THREE.MeshBasicMaterial).opacity = 0.95 * opacity;
     }
@@ -152,20 +152,12 @@ export default function ParticleSwarm({
           y = y + (collisionPoint.y - y) * individualT + curveOffset * 0.32;
           z = z + (collisionPoint.z - z) * individualT;
         }
-      } else if (phase === "collide" || phase === "explode") {
-        const converge = phase === "collide" ? phaseProgress : 1;
-        const explodeForce = phase === "explode" ? phaseProgress * 3.2 * p.orbitSpeed : 0;
-
+      } else if (phase === "collide") {
+        // Particles converge smoothly to center for merging
+        const converge = phaseProgress;
         x = x * (1 - converge) + collisionPoint.x * converge;
         y = y * (1 - converge) + collisionPoint.y * converge;
         z = z * (1 - converge) + collisionPoint.z * converge;
-
-        if (explodeForce > 0) {
-          const dir = p.basePos.clone().normalize();
-          x += dir.x * explodeForce;
-          y += dir.y * explodeForce;
-          z += dir.z * explodeForce;
-        }
       } else if (phase === "emerge") {
         const fadeOut = Math.min(phaseProgress * 2, 1);
         const shrink = 1 - fadeOut;
@@ -178,8 +170,7 @@ export default function ParticleSwarm({
 
       dummy.position.set(x, y, z);
       let scale = p.size;
-      if (phase === "collide") scale *= 1 + phaseProgress * 0.6;
-      if (phase === "explode") scale *= Math.max(0.28, 1 - phaseProgress * 0.6);
+      if (phase === "collide") scale *= 1 + phaseProgress * 0.3;
       dummy.scale.setScalar(Math.max(0.001, scale));
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);

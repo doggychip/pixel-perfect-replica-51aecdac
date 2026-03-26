@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import type { CollisionTheory, DomainKey } from "@/data/collision-theories";
 import { DOMAIN_COLORS } from "@/data/collision-theories";
 
-type Phase = "idle" | "beam" | "collide" | "explode" | "emerge";
+type Phase = "idle" | "beam" | "collide" | "emerge";
 
 export default function HUD({
   theoryA,
@@ -25,16 +25,14 @@ export default function HUD({
   const collisionEnergy = useMemo(() => {
     if (phase === "idle") return 0;
     if (phase === "beam") return Math.round(phaseProgress * 40);
-    if (phase === "collide") return 40 + Math.round(phaseProgress * 55);
-    if (phase === "explode") return 95 + Math.round(phaseProgress * 5);
+    if (phase === "collide") return 40 + Math.round(phaseProgress * 60);
     return 100;
   }, [phase, phaseProgress]);
 
   const phaseLabel = {
     idle: "STANDBY",
     beam: "⚡ BEAM ACCELERATING",
-    collide: "💥 COLLISION IN PROGRESS",
-    explode: "🌟 IMPACT DETECTED",
+    collide: "🌀 MERGING",
     emerge: "✨ EMERGENCE FORMING",
   }[phase];
 
