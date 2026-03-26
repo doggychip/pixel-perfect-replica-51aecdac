@@ -156,8 +156,8 @@ function Scene({ theoryA, theoryB, isColliding, hasResult, emergentName, onPhase
     }
   });
 
-  const shakeIntensity = phase === "collide" ? phaseProgress : phase === "explode" ? Math.max(0, 1 - phaseProgress) * 0.6 : 0;
-  const showSwarms = phase !== "emerge" || phaseProgress < 0.45;
+  const shakeIntensity = phase === "collide" ? phaseProgress * 0.3 : 0;
+  const showSwarms = phase !== "emerge" || phaseProgress < 0.5;
 
   return (
     <>
@@ -177,15 +177,8 @@ function Scene({ theoryA, theoryB, isColliding, hasResult, emergentName, onPhase
 
       {phase === "collide" && <CentralFlash progress={phaseProgress} center={COLLISION_CENTER} />}
 
-      {(phase === "explode" || phase === "collide") && (
-        <>
-          <SparkBurst progress={phaseProgress} center={COLLISION_CENTER} />
-          <ShockwaveRings progress={phaseProgress} center={COLLISION_CENTER} />
-        </>
-      )}
-
-      {(phase === "emerge" || (phase === "explode" && phaseProgress > 0.5)) && (
-        <EnergyRipples center={COLLISION_CENTER} intensity={phase === "emerge" ? 1 : phaseProgress * 0.5} />
+      {phase === "emerge" && (
+        <EnergyRipples center={COLLISION_CENTER} intensity={1} />
       )}
 
       {phase === "emerge" && theoryA && theoryB && (
