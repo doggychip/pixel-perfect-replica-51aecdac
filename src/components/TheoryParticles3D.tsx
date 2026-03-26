@@ -4,7 +4,7 @@ import { Stars, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { CollisionTheory } from "@/data/collision-theories";
 import ParticleSwarm from "./collision-3d/ParticleSwarm";
-import { SparkBurst, ShockwaveRings, CentralFlash, EnergyRipples } from "./collision-3d/CollisionFX";
+import { CentralFlash, EnergyRipples } from "./collision-3d/CollisionFX";
 import EmergentCloud from "./collision-3d/EmergentCloud";
 import HUD from "./collision-3d/HUD";
 
