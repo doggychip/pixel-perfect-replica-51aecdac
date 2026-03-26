@@ -299,23 +299,48 @@ function NebulaCloud({
         />
       </instancedMesh>
 
+      {/* Theory name + particle count label */}
+      {showLabels && (
+        <Html position={[idleOffsetX, -1.8, 0]} center>
+          <div className="text-center pointer-events-none select-none">
+            <div className="text-xs font-bold" style={{ color: `#${color.getHexString()}` }}>
+              {theory.name}
+            </div>
+            <div className="text-[10px] text-white/50 mt-0.5">
+              {totalParticleCount} particles · {theory.factors.length} factors
+            </div>
+            <div className="flex flex-wrap justify-center gap-1 mt-1 max-w-[180px]">
+              {theory.factors.map((f, i) => {
+                const motionLabels = ["wave", "orbital", "pulse", "spiral", "chaos", "lattice"];
+                const motionType = motionLabels[getMotionType(f)] || "lattice";
+                return (
+                  <span key={f} className="text-[8px] px-1 py-0.5 rounded bg-white/10 text-white/60">
+                    {f} <span className="text-white/30">({motionType})</span>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </Html>
+      )}
+
       {showLabels && factorPositions.map(({ name, pos }) => (
         <group key={name} position={[pos.x + idleOffsetX, pos.y, pos.z]}>
           <mesh>
-            <sphereGeometry args={[0.05, 16, 16]} />
+            <sphereGeometry args={[0.06, 16, 16]} />
             <meshBasicMaterial
               color={activeFactor === name ? "#f59e0b" : color}
               transparent
-              opacity={activeFactor === name ? 1 : 0.5}
+              opacity={activeFactor === name ? 1 : 0.6}
             />
           </mesh>
           {activeFactor === name && (
             <mesh>
-              <ringGeometry args={[0.08, 0.11, 32]} />
+              <ringGeometry args={[0.09, 0.12, 32]} />
               <meshBasicMaterial color="#f59e0b" transparent opacity={0.8} side={THREE.DoubleSide} />
             </mesh>
           )}
-          <Html position={[0, 0.14, 0]} center style={{ pointerEvents: "auto" }}>
+          <Html position={[0, 0.16, 0]} center style={{ pointerEvents: "auto" }}>
             <div
               className="px-1.5 py-0.5 text-[9px] rounded bg-black/70 border border-white/10 text-white/80 whitespace-nowrap cursor-pointer select-none hover:text-amber-300 transition-colors"
               onMouseEnter={() => onFactorHover(name)}
