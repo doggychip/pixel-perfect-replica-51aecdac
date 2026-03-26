@@ -61,8 +61,8 @@ export default function ParticleSwarm({
     theory.factors.forEach((_, fi) => {
       const coreAngle = (fi / theory.factors.length) * Math.PI * 2;
       for (let j = 0; j < perFactor; j++) {
-        const r = 0.55 + Math.random() * 1.35;
-        const isLarge = Math.random() < 0.18;
+        const r = 0.6 + Math.random() * 1.4;
+        const isLarge = Math.random() < 0.2;
         pts.push({
           basePos: new THREE.Vector3(
             Math.cos(coreAngle + (Math.random() - 0.5) * 1.8) * r,
@@ -72,7 +72,7 @@ export default function ParticleSwarm({
           orbitRadius: 0.08 + Math.random() * 0.2,
           orbitSpeed: 0.5 + Math.random() * 1.8,
           orbitPhase: Math.random() * Math.PI * 2,
-          size: isLarge ? 0.05 + Math.random() * 0.03 : 0.02 + Math.random() * 0.018,
+          size: isLarge ? 0.06 + Math.random() * 0.04 : 0.028 + Math.random() * 0.022,
           factorIdx: fi,
         });
       }
