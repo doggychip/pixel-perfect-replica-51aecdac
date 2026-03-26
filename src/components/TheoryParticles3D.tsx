@@ -1,12 +1,12 @@
 import { useRef, useMemo, useState, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Stars, Html } from "@react-three/drei";
+import { Stars, Html, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { CollisionTheory, DomainKey } from "@/data/collision-theories";
 import { DOMAIN_COLORS } from "@/data/collision-theories";
 
 // ─── Types ───────────────────────────────────────────────────
-type Phase = "idle" | "approach" | "explode" | "merge";
+type Phase = "idle" | "approach" | "collide" | "explode" | "merge" | "unified";
 
 interface TheoryParticles3DProps {
   theoryA?: CollisionTheory;
@@ -16,34 +16,107 @@ interface TheoryParticles3DProps {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
-function hexToVec3(hex: string): THREE.Color {
-  return new THREE.Color(hex);
-}
-
 function factorToPosition(factor: string, idx: number, total: number): THREE.Vector3 {
   const hash = [...factor].reduce((a, c) => a + c.charCodeAt(0), 0);
   const angle = (idx / total) * Math.PI * 2;
-  const r = 1.2 + (hash % 30) * 0.04;
+  const r = 1.0 + (hash % 20) * 0.03;
   return new THREE.Vector3(
     Math.cos(angle) * r,
-    (hash % 20 - 10) * 0.08,
+    (hash % 20 - 10) * 0.06,
     Math.sin(angle) * r
   );
 }
 
 function getMotionType(factor: string): number {
   const f = factor.toLowerCase();
-  if (f.includes("wave") || f.includes("field") || f.includes("flow")) return 0; // wave
-  if (f.includes("spin") || f.includes("orbit") || f.includes("rotat")) return 1; // orbit
-  if (f.includes("pulse") || f.includes("oscil") || f.includes("vibr")) return 2; // pulse
-  if (f.includes("spiral") || f.includes("vortex") || f.includes("helix")) return 3; // spiral
-  return 4; // jitter
+  if (f.includes("wave") || f.includes("field") || f.includes("flow") || f.includes("interference") || f.includes("synchron")) return 0;
+  if (f.includes("state") || f.includes("orbit") || f.includes("stabil") || f.includes("attract")) return 1;
+  if (f.includes("pulse") || f.includes("oscil") || f.includes("vibr") || f.includes("broadcast") || f.includes("correlat")) return 2;
+  if (f.includes("spiral") || f.includes("vortex") || f.includes("helix") || f.includes("entropy") || f.includes("self-org")) return 3;
+  if (f.includes("chaos") || f.includes("butterfly") || f.includes("bifurcat") || f.includes("perturb")) return 4;
+  return 5; // lattice/default
+}
+
+// ─── Merged Cloud (post-collision unified particles) ─────────
+function MergedCloud({
+  theoryA,
+  theoryB,
+  progress,
+}: {
+  theoryA: CollisionTheory;
+  theoryB: CollisionTheory;
+  progress: number;
+}) {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const colorA = useMemo(() => new THREE.Color(DOMAIN_COLORS[theoryA.domain as DomainKey] ?? "#3b82f6"), [theoryA]);
+  const colorB = useMemo(() => new THREE.Color(DOMAIN_COLORS[theoryB.domain as DomainKey] ?? "#ef4444"), [theoryB]);
+  const mergedColor = useMemo(() => new THREE.Color().copy(colorA).lerp(colorB, 0.5), [colorA, colorB]);
+
+  const COUNT = 300;
+  const particles = useMemo(() => {
+    return Array.from({ length: COUNT }, (_, i) => {
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = 0.3 + Math.random() * 1.2;
+      return {
+        pos: new THREE.Vector3(
+          Math.sin(phi) * Math.cos(theta) * r,
+          Math.sin(phi) * Math.sin(theta) * r,
+          Math.cos(phi) * r
+        ),
+        speed: 0.2 + Math.random() * 0.6,
+        fromA: i < COUNT / 2,
+      };
+    });
+  }, []);
+
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const tempColor = useMemo(() => new THREE.Color(), []);
+
+  useFrame(({ clock }) => {
+    if (!meshRef.current) return;
+    const t = clock.getElapsedTime();
+    const fade = Math.min(progress, 1);
+
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      // Orbiting unified cloud
+      const angle = t * p.speed * 0.5 + i * 0.1;
+      const r = p.pos.length() * (0.8 + Math.sin(t * 0.3 + i) * 0.15);
+      const x = p.pos.x + Math.cos(angle) * 0.08;
+      const y = p.pos.y + Math.sin(t * 0.7 + i * 0.3) * 0.06;
+      const z = p.pos.z + Math.sin(angle) * 0.08;
+
+      dummy.position.set(x, y, z);
+      dummy.scale.setScalar(0.03 * fade);
+      dummy.updateMatrix();
+      meshRef.current.setMatrixAt(i, dummy.matrix);
+
+      // Color: blend from original to merged purple
+      const sourceColor = p.fromA ? colorA : colorB;
+      tempColor.copy(sourceColor).lerp(mergedColor, fade * 0.6);
+      // Add shimmer
+      const shimmer = Math.sin(t * 3 + i * 0.5) * 0.15;
+      tempColor.r = Math.min(1, tempColor.r + shimmer);
+      tempColor.g = Math.min(1, tempColor.g + shimmer * 0.5);
+      meshRef.current.setColorAt(i, tempColor);
+    }
+    meshRef.current.instanceMatrix.needsUpdate = true;
+    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={meshRef} args={[undefined, undefined, COUNT]}>
+      <sphereGeometry args={[1, 8, 8]} />
+      <meshBasicMaterial transparent opacity={0.85} blending={THREE.AdditiveBlending} depthWrite={false} vertexColors />
+    </instancedMesh>
+  );
 }
 
 // ─── Nebula Cloud ────────────────────────────────────────────
 function NebulaCloud({
   theory,
-  offset,
+  side,
   phase,
   phaseProgress,
   activeFactor,
@@ -51,7 +124,7 @@ function NebulaCloud({
   onFactorClick,
 }: {
   theory: CollisionTheory;
-  offset: THREE.Vector3;
+  side: "left" | "right";
   phase: Phase;
   phaseProgress: number;
   activeFactor: string | null;
@@ -59,20 +132,20 @@ function NebulaCloud({
   onFactorClick: (f: string) => void;
 }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
-  const color = hexToVec3(DOMAIN_COLORS[theory.domain as DomainKey] ?? "#888");
+  const color = useMemo(() => new THREE.Color(DOMAIN_COLORS[theory.domain as DomainKey] ?? "#888"), [theory]);
+  const idleOffsetX = side === "left" ? -2.2 : 2.2;
 
   const particles = useMemo(() => {
-    const pts: { pos: THREE.Vector3; coreIdx: number; speed: number; motion: number }[] = [];
+    const pts: { pos: THREE.Vector3; coreIdx: number; speed: number; motion: number; phase: number }[] = [];
     const factorCores = theory.factors.map((f, i) => ({
       pos: factorToPosition(f, i, theory.factors.length),
       motion: getMotionType(f),
     }));
-
     const countPerCore = Math.floor(250 / Math.max(theory.factors.length, 1));
 
     factorCores.forEach((core, ci) => {
       for (let j = 0; j < countPerCore; j++) {
-        const spread = 0.6 + Math.random() * 0.5;
+        const spread = 0.5 + Math.random() * 0.4;
         pts.push({
           pos: new THREE.Vector3(
             core.pos.x + (Math.random() - 0.5) * spread,
@@ -82,6 +155,7 @@ function NebulaCloud({
           coreIdx: ci,
           speed: 0.3 + Math.random() * 0.7,
           motion: core.motion,
+          phase: Math.random() * Math.PI * 2,
         });
       }
     });
@@ -89,86 +163,117 @@ function NebulaCloud({
   }, [theory]);
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
-  const basePositions = useMemo(() => particles.map(p => p.pos.clone()), [particles]);
+  const tempColor = useMemo(() => new THREE.Color(), []);
 
   useFrame(({ clock }) => {
     if (!meshRef.current) return;
     const t = clock.getElapsedTime();
 
-    // Phase-based offset
-    let phaseOffset = offset.clone();
+    // Compute dynamic offset based on phase
+    let offsetX = idleOffsetX;
+    let cloudOpacity = 1;
+
     if (phase === "approach") {
+      // Clouds move toward each other
       const lerp = Math.min(phaseProgress, 1);
-      phaseOffset.multiplyScalar(1 - lerp * 0.7);
+      offsetX = idleOffsetX * (1 - lerp * 0.85);
+    } else if (phase === "collide") {
+      // Clouds overlap at center, particles interweave
+      offsetX = idleOffsetX * 0.15 * (1 - phaseProgress * 0.5);
     } else if (phase === "explode") {
-      phaseOffset.set(0, 0, 0);
-    } else if (phase === "merge") {
-      phaseOffset.set(0, 0, 0);
+      offsetX = 0;
+      cloudOpacity = Math.max(0, 1 - phaseProgress * 0.6);
+    } else if (phase === "merge" || phase === "unified") {
+      offsetX = 0;
+      cloudOpacity = Math.max(0, 1 - phaseProgress);
     }
 
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
-      const base = basePositions[i];
+      const base = p.pos;
       let x = base.x, y = base.y, z = base.z;
+      const st = t * p.speed + p.phase;
 
       // Motion patterns
-      const st = t * p.speed;
       switch (p.motion) {
         case 0: // wave
           y += Math.sin(st * 1.5 + i) * 0.15;
+          x += Math.cos(st * 0.6) * 0.04;
           break;
-        case 1: // orbit
-          x += Math.cos(st + i * 0.1) * 0.12;
-          z += Math.sin(st + i * 0.1) * 0.12;
+        case 1: // orbital
+          x += Math.cos(st * 1.2) * 0.12;
+          z += Math.sin(st * 1.2) * 0.12;
           break;
         case 2: // pulse
-          const scale = 1 + Math.sin(st * 2) * 0.1;
-          x *= scale; y *= scale; z *= scale;
+          { const sc = 1 + Math.sin(st * 2) * 0.1; x *= sc; y *= sc; z *= sc; }
           break;
         case 3: // spiral
-          const angle = st + i * 0.05;
-          x += Math.cos(angle) * 0.1;
-          y += Math.sin(angle * 0.5) * 0.08;
-          z += Math.sin(angle) * 0.1;
+          { const sa = st * 1.3; x += Math.cos(sa) * 0.1; y += Math.sin(sa * 0.5) * 0.08; z += Math.sin(sa) * 0.1; }
           break;
-        default: // jitter
-          x += Math.sin(st * 3 + i * 7) * 0.05;
-          y += Math.cos(st * 2.5 + i * 11) * 0.05;
-          z += Math.sin(st * 2 + i * 13) * 0.05;
+        case 4: // chaotic
+          x += Math.sin(st * 3.5 + i * 0.37) * 0.08;
+          y += Math.cos(st * 2.9 + i * 0.53) * 0.08;
+          z += Math.sin(st * 4.1 + i * 0.71) * 0.06;
+          break;
+        default: // lattice jitter
+          x += Math.sin(st * 5 + i) * 0.03;
+          y += Math.cos(st * 4 + i * 0.7) * 0.03;
       }
 
-      // Explode phase: particles fly outward
+      // Collide phase: particles swirl toward center
+      if (phase === "collide") {
+        const swirlAngle = t * 2 + i * 0.02;
+        const pullFactor = phaseProgress * 0.5;
+        x = x * (1 - pullFactor) + Math.cos(swirlAngle) * 0.3 * pullFactor;
+        y = y * (1 - pullFactor) + Math.sin(swirlAngle * 0.7) * 0.2 * pullFactor;
+        z = z * (1 - pullFactor) + Math.sin(swirlAngle) * 0.3 * pullFactor;
+      }
+
+      // Explode phase: particles blast outward
       if (phase === "explode") {
-        const explodeForce = phaseProgress * 2.5;
         const dir = base.clone().normalize();
-        x += dir.x * explodeForce * p.speed;
-        y += dir.y * explodeForce * p.speed;
-        z += dir.z * explodeForce * p.speed;
+        const force = phaseProgress * 3 * p.speed;
+        x += dir.x * force;
+        y += dir.y * force;
+        z += dir.z * force;
       }
 
-      // Merge phase: particles converge to center
-      if (phase === "merge") {
-        const mergeFactor = Math.min(phaseProgress, 1) * 0.6;
-        x *= (1 - mergeFactor);
-        y *= (1 - mergeFactor);
-        z *= (1 - mergeFactor);
+      // Merge/unified: particles converge into tight sphere
+      if (phase === "merge" || phase === "unified") {
+        const target = base.clone().normalize().multiplyScalar(0.4);
+        const mf = Math.min(phaseProgress, 1);
+        x = x * (1 - mf) + target.x * mf;
+        y = y * (1 - mf) + target.y * mf;
+        z = z * (1 - mf) + target.z * mf;
       }
 
-      dummy.position.set(x + phaseOffset.x, y + phaseOffset.y, z + phaseOffset.z);
-      
-      const baseScale = phase === "explode" 
-        ? 0.025 * (1 - phaseProgress * 0.5) 
-        : phase === "merge"
-        ? 0.025 * (1 + phaseProgress * 0.3)
-        : 0.025;
-      dummy.scale.setScalar(baseScale);
+      dummy.position.set(x + offsetX, y, z);
+
+      let particleScale = 0.025;
+      if (phase === "collide") particleScale = 0.025 * (1 + phaseProgress * 0.4);
+      if (phase === "explode") particleScale = 0.03 * (1 - phaseProgress * 0.4);
+      if (phase === "merge" || phase === "unified") particleScale = 0.025 * (1 - phaseProgress * 0.8);
+
+      dummy.scale.setScalar(Math.max(0.001, particleScale));
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);
+
+      // Color shift during collision
+      tempColor.copy(color);
+      if (phase === "collide" || phase === "explode") {
+        tempColor.lerp(new THREE.Color("#ffffff"), phaseProgress * 0.3);
+      }
+      meshRef.current.setColorAt(i, tempColor);
     }
     meshRef.current.instanceMatrix.needsUpdate = true;
+    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
+
+    // Update material opacity
+    const mat = meshRef.current.material as THREE.MeshBasicMaterial;
+    mat.opacity = 0.7 * cloudOpacity;
   });
 
-  // Factor labels
+  // Factor labels — only show in idle
   const factorPositions = useMemo(() => {
     return theory.factors.map((f, i) => ({
       name: f,
@@ -176,42 +281,38 @@ function NebulaCloud({
     }));
   }, [theory]);
 
+  const showLabels = phase === "idle";
+
   return (
     <group>
       <instancedMesh ref={meshRef} args={[undefined, undefined, particles.length]}>
         <sphereGeometry args={[1, 8, 8]} />
         <meshBasicMaterial
-          color={color}
           transparent
           opacity={0.7}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
+          vertexColors
         />
       </instancedMesh>
 
-      {/* Factor labels */}
-      {factorPositions.map(({ name, pos }) => (
-        <group key={name} position={[pos.x + offset.x, pos.y + offset.y, pos.z + offset.z]}>
-          {/* Highlight dot */}
+      {showLabels && factorPositions.map(({ name, pos }) => (
+        <group key={name} position={[pos.x + idleOffsetX, pos.y, pos.z]}>
           <mesh>
-            <sphereGeometry args={[0.06, 16, 16]} />
+            <sphereGeometry args={[0.05, 16, 16]} />
             <meshBasicMaterial
               color={activeFactor === name ? "#f59e0b" : color}
               transparent
-              opacity={activeFactor === name ? 1 : 0.6}
+              opacity={activeFactor === name ? 1 : 0.5}
             />
           </mesh>
           {activeFactor === name && (
             <mesh>
-              <ringGeometry args={[0.1, 0.13, 32]} />
+              <ringGeometry args={[0.08, 0.11, 32]} />
               <meshBasicMaterial color="#f59e0b" transparent opacity={0.8} side={THREE.DoubleSide} />
             </mesh>
           )}
-          <Html
-            position={[0, 0.15, 0]}
-            center
-            style={{ pointerEvents: "auto" }}
-          >
+          <Html position={[0, 0.14, 0]} center style={{ pointerEvents: "auto" }}>
             <div
               className="px-1.5 py-0.5 text-[9px] rounded bg-black/70 border border-white/10 text-white/80 whitespace-nowrap cursor-pointer select-none hover:text-amber-300 transition-colors"
               onMouseEnter={() => onFactorHover(name)}
@@ -227,22 +328,24 @@ function NebulaCloud({
   );
 }
 
-// ─── Collision Fireworks ─────────────────────────────────────
-function CollisionFireworks({ progress }: { progress: number }) {
+// ─── Collision Effects ───────────────────────────────────────
+function CollisionSparks({ progress }: { progress: number }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
 
+  const COUNT = 120;
   const particles = useMemo(() => {
-    return Array.from({ length: 80 }, (_, i) => {
+    return Array.from({ length: COUNT }, () => {
       const theta = Math.random() * Math.PI * 2;
-      const phi = Math.random() * Math.PI;
-      const speed = 1.5 + Math.random() * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const speed = 1 + Math.random() * 3;
       return {
         dir: new THREE.Vector3(
           Math.sin(phi) * Math.cos(theta) * speed,
           Math.sin(phi) * Math.sin(theta) * speed,
           Math.cos(phi) * speed
         ),
-        color: new THREE.Color().setHSL(0.55 + Math.random() * 0.3, 0.9, 0.6),
+        color: new THREE.Color().setHSL(0.5 + Math.random() * 0.35, 0.9, 0.5 + Math.random() * 0.3),
+        rotSpeed: (Math.random() - 0.5) * 4,
       };
     });
   }, []);
@@ -251,11 +354,11 @@ function CollisionFireworks({ progress }: { progress: number }) {
 
   useFrame(() => {
     if (!meshRef.current) return;
-    const fade = Math.max(0, 1 - progress);
-    for (let i = 0; i < particles.length; i++) {
+    const fade = Math.max(0, 1 - progress * 1.2);
+    for (let i = 0; i < COUNT; i++) {
       const p = particles[i];
-      dummy.position.copy(p.dir).multiplyScalar(progress);
-      dummy.scale.setScalar(0.04 * fade);
+      dummy.position.copy(p.dir).multiplyScalar(progress * 0.8);
+      dummy.scale.setScalar(0.035 * fade);
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);
       meshRef.current.setColorAt(i, p.color);
@@ -265,26 +368,44 @@ function CollisionFireworks({ progress }: { progress: number }) {
   });
 
   return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, 80]}>
-      <sphereGeometry args={[1, 8, 8]} />
-      <meshBasicMaterial transparent opacity={0.8} blending={THREE.AdditiveBlending} depthWrite={false} />
+    <instancedMesh ref={meshRef} args={[undefined, undefined, COUNT]}>
+      <sphereGeometry args={[1, 6, 6]} />
+      <meshBasicMaterial transparent opacity={0.9} blending={THREE.AdditiveBlending} depthWrite={false} vertexColors />
     </instancedMesh>
   );
 }
 
-// ─── Shockwave Ring ──────────────────────────────────────────
-function ShockwaveRing({ progress }: { progress: number }) {
+function ShockwaveRings({ progress }: { progress: number }) {
+  return (
+    <>
+      {[0, 0.15, 0.3].map((delay, i) => {
+        const p = Math.max(0, Math.min(1, (progress - delay) / (1 - delay)));
+        const s = p * 5;
+        const opacity = Math.max(0, 1 - p) * 0.6;
+        return (
+          <mesh key={i} rotation={[Math.PI / 2 + i * 0.3, i * 0.5, 0]} scale={[s, s, s]}>
+            <ringGeometry args={[0.85, 1, 64]} />
+            <meshBasicMaterial color={i === 0 ? "#fff" : i === 1 ? "#8b5cf6" : "#06b6d4"} transparent opacity={opacity} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
+          </mesh>
+        );
+      })}
+    </>
+  );
+}
+
+function EnergyCore({ progress }: { progress: number }) {
   const ref = useRef<THREE.Mesh>(null);
-  useFrame(() => {
+  useFrame(({ clock }) => {
     if (!ref.current) return;
-    const s = progress * 4;
+    const t = clock.getElapsedTime();
+    const s = 0.15 + progress * 0.4 + Math.sin(t * 8) * 0.05;
     ref.current.scale.set(s, s, s);
-    (ref.current.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 1 - progress);
+    (ref.current.material as THREE.MeshBasicMaterial).opacity = Math.min(1, progress * 2);
   });
   return (
-    <mesh ref={ref} rotation={[Math.PI / 2, 0, 0]}>
-      <ringGeometry args={[0.9, 1, 64]} />
-      <meshBasicMaterial color="#fff" transparent opacity={1} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
+    <mesh ref={ref}>
+      <sphereGeometry args={[1, 32, 32]} />
+      <meshBasicMaterial color="#e0c3fc" transparent opacity={0} blending={THREE.AdditiveBlending} />
     </mesh>
   );
 }
@@ -293,37 +414,33 @@ function ShockwaveRing({ progress }: { progress: number }) {
 function ConnectingArcs({
   theoryA,
   theoryB,
-  offsetA,
-  offsetB,
   activeFactor,
 }: {
   theoryA: CollisionTheory;
   theoryB: CollisionTheory;
-  offsetA: THREE.Vector3;
-  offsetB: THREE.Vector3;
   activeFactor: string | null;
 }) {
+  const offsetAx = -2.2;
+  const offsetBx = 2.2;
+
   const lines = useMemo(() => {
     const result: { from: THREE.Vector3; to: THREE.Vector3; highlight: boolean }[] = [];
     theoryA.factors.forEach((fA, iA) => {
       theoryB.factors.forEach((fB, iB) => {
-        // Simple similarity: share a word
         const wordsA = fA.toLowerCase().split(/\s+/);
         const wordsB = fB.toLowerCase().split(/\s+/);
         const shared = wordsA.some(w => w.length > 3 && wordsB.includes(w));
         if (shared || (iA === iB && iA < 2)) {
-          const posA = factorToPosition(fA, iA, theoryA.factors.length).add(offsetA);
-          const posB = factorToPosition(fB, iB, theoryB.factors.length).add(offsetB);
-          result.push({
-            from: posA,
-            to: posB,
-            highlight: activeFactor === fA || activeFactor === fB,
-          });
+          const posA = factorToPosition(fA, iA, theoryA.factors.length);
+          posA.x += offsetAx;
+          const posB = factorToPosition(fB, iB, theoryB.factors.length);
+          posB.x += offsetBx;
+          result.push({ from: posA, to: posB, highlight: activeFactor === fA || activeFactor === fB });
         }
       });
     });
     return result;
-  }, [theoryA, theoryB, offsetA, offsetB, activeFactor]);
+  }, [theoryA, theoryB, activeFactor]);
 
   return (
     <>
@@ -336,12 +453,7 @@ function ConnectingArcs({
         return (
           <line key={i}>
             <primitive object={geometry} attach="geometry" />
-            <lineBasicMaterial
-              color={line.highlight ? "#f59e0b" : "#ffffff"}
-              transparent
-              opacity={line.highlight ? 0.6 : 0.1}
-              blending={THREE.AdditiveBlending}
-            />
+            <lineBasicMaterial color={line.highlight ? "#f59e0b" : "#ffffff"} transparent opacity={line.highlight ? 0.6 : 0.08} blending={THREE.AdditiveBlending} />
           </line>
         );
       })}
@@ -355,22 +467,36 @@ function Scene({ theoryA, theoryB, isColliding, hasResult }: TheoryParticles3DPr
   const [phaseProgress, setPhaseProgress] = useState(0);
   const [activeFactor, setActiveFactor] = useState<string | null>(null);
   const phaseStartRef = useRef(0);
+  const prevCollidingRef = useRef(false);
 
   useEffect(() => {
-    if (isColliding) {
+    if (isColliding && !prevCollidingRef.current) {
       setPhase("approach");
       phaseStartRef.current = 0;
-    } else if (hasResult && phase !== "idle") {
-      setPhase("merge");
-      phaseStartRef.current = 0;
-    } else if (!isColliding && !hasResult) {
-      setPhase("idle");
+      setActiveFactor(null);
     }
-  }, [isColliding, hasResult]);
+    prevCollidingRef.current = isColliding;
+  }, [isColliding]);
+
+  useEffect(() => {
+    if (hasResult && (phase === "explode" || phase === "merge")) {
+      // Result arrived, stay in merge/unified
+    } else if (hasResult && phase === "idle") {
+      // Result exists, show unified
+      setPhase("unified");
+      phaseStartRef.current = 0;
+    } else if (!hasResult && !isColliding && phase !== "idle") {
+      setPhase("idle");
+      phaseStartRef.current = 0;
+    }
+  }, [hasResult]);
 
   useFrame(({ clock }) => {
-    if (phase === "idle") {
-      setPhaseProgress(0);
+    if (phase === "idle" || phase === "unified") {
+      if (phase === "unified") {
+        if (phaseStartRef.current === 0) phaseStartRef.current = clock.getElapsedTime();
+        setPhaseProgress(Math.min((clock.getElapsedTime() - phaseStartRef.current) / 1, 1));
+      }
       return;
     }
 
@@ -378,37 +504,36 @@ function Scene({ theoryA, theoryB, isColliding, hasResult }: TheoryParticles3DPr
     const elapsed = clock.getElapsedTime() - phaseStartRef.current;
 
     if (phase === "approach") {
-      setPhaseProgress(Math.min(elapsed / 2, 1));
-      if (elapsed > 2) {
-        setPhase("explode");
-        phaseStartRef.current = clock.getElapsedTime();
-      }
-    } else if (phase === "explode") {
+      setPhaseProgress(Math.min(elapsed / 1.8, 1));
+      if (elapsed > 1.8) { setPhase("collide"); phaseStartRef.current = clock.getElapsedTime(); }
+    } else if (phase === "collide") {
       setPhaseProgress(Math.min(elapsed / 1.5, 1));
-      if (elapsed > 1.5) {
-        setPhase("merge");
-        phaseStartRef.current = clock.getElapsedTime();
-      }
+      if (elapsed > 1.5) { setPhase("explode"); phaseStartRef.current = clock.getElapsedTime(); }
+    } else if (phase === "explode") {
+      setPhaseProgress(Math.min(elapsed / 1.2, 1));
+      if (elapsed > 1.2) { setPhase("merge"); phaseStartRef.current = clock.getElapsedTime(); }
     } else if (phase === "merge") {
       setPhaseProgress(Math.min(elapsed / 2, 1));
-      if (elapsed > 3) {
-        setPhase("idle");
-      }
+      if (elapsed > 2.5) { setPhase("unified"); phaseStartRef.current = clock.getElapsedTime(); }
     }
   });
 
-  const offsetA = useMemo(() => new THREE.Vector3(-2.2, 0, 0), []);
-  const offsetB = useMemo(() => new THREE.Vector3(2.2, 0, 0), []);
+  const showClouds = phase !== "unified";
+  const showEffects = phase === "explode";
+  const showMerged = phase === "merge" || phase === "unified";
+  const showArcs = phase === "idle" && theoryA && theoryB;
+  const showEnergyCore = phase === "collide" || phase === "explode" || phase === "merge" || phase === "unified";
 
   return (
     <>
       <ambientLight intensity={0.3} />
       <Stars radius={50} depth={40} count={1500} factor={3} saturation={0.2} fade speed={0.5} />
+      <OrbitControls enablePan={false} enableZoom minDistance={3} maxDistance={12} />
 
-      {theoryA && (
+      {theoryA && showClouds && (
         <NebulaCloud
           theory={theoryA}
-          offset={offsetA}
+          side="left"
           phase={phase}
           phaseProgress={phaseProgress}
           activeFactor={activeFactor}
@@ -417,10 +542,10 @@ function Scene({ theoryA, theoryB, isColliding, hasResult }: TheoryParticles3DPr
         />
       )}
 
-      {theoryB && (
+      {theoryB && showClouds && (
         <NebulaCloud
           theory={theoryB}
-          offset={offsetB}
+          side="right"
           phase={phase}
           phaseProgress={phaseProgress}
           activeFactor={activeFactor}
@@ -429,21 +554,34 @@ function Scene({ theoryA, theoryB, isColliding, hasResult }: TheoryParticles3DPr
         />
       )}
 
-      {theoryA && theoryB && phase === "idle" && (
-        <ConnectingArcs
-          theoryA={theoryA}
-          theoryB={theoryB}
-          offsetA={offsetA}
-          offsetB={offsetB}
-          activeFactor={activeFactor}
-        />
+      {showArcs && (
+        <ConnectingArcs theoryA={theoryA!} theoryB={theoryB!} activeFactor={activeFactor} />
       )}
 
-      {phase === "explode" && (
+      {showEnergyCore && <EnergyCore progress={phaseProgress} />}
+
+      {showEffects && (
         <>
-          <CollisionFireworks progress={phaseProgress} />
-          <ShockwaveRing progress={phaseProgress} />
+          <CollisionSparks progress={phaseProgress} />
+          <ShockwaveRings progress={phaseProgress} />
         </>
+      )}
+
+      {showMerged && theoryA && theoryB && (
+        <MergedCloud theoryA={theoryA} theoryB={theoryB} progress={phaseProgress} />
+      )}
+
+      {/* Phase label */}
+      {phase !== "idle" && (
+        <Html position={[0, -2.2, 0]} center>
+          <div className="text-[10px] font-mono text-white/40 uppercase tracking-widest animate-pulse">
+            {phase === "approach" ? "approaching..." :
+             phase === "collide" ? "⚡ colliding..." :
+             phase === "explode" ? "💥 impact!" :
+             phase === "merge" ? "🌀 merging..." :
+             "✨ unified framework"}
+          </div>
+        </Html>
       )}
     </>
   );
