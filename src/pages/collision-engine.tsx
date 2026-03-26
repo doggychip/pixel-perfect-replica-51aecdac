@@ -9,6 +9,7 @@ import {
   Zap, Shuffle, ChevronRight, Star, Clock, Link2, Atom,
   Sparkles, ArrowRight, X, History, AlertTriangle,
 } from "lucide-react";
+import TheoryParticles3D from "@/components/TheoryParticles3D";
 import {
   THEORIES, DOMAINS, COLLISION_MODES, DOMAIN_COLORS, DOMAIN_CLASSES,
   getTheoriesByDomain,
@@ -532,15 +533,15 @@ export default function CollisionEnginePage() {
             )}
           </div>
 
-          {/* Empty state */}
-          {!currentResult && !isColliding && !error && (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center py-12">
-                <Atom className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground/40">
-                  Select two theories and collide them to discover novel frameworks
-                </p>
-              </div>
+          {/* 3D Visualization */}
+          {!currentResult && !isColliding && (
+            <div className="flex-1 min-h-[300px] rounded-lg border border-border/30 overflow-hidden bg-black/20">
+              <TheoryParticles3D
+                theoryA={selectedTheories[0]}
+                theoryB={selectedTheories[1]}
+                isColliding={isColliding}
+                hasResult={!!currentResult}
+              />
             </div>
           )}
         </div>
