@@ -8,7 +8,7 @@ import { CentralFlash, EnergyRipples } from "./collision-3d/CollisionFX";
 import EmergentCloud from "./collision-3d/EmergentCloud";
 import HUD from "./collision-3d/HUD";
 
-type Phase = "idle" | "beam" | "collide" | "explode" | "emerge";
+type Phase = "idle" | "beam" | "collide" | "emerge";
 
 interface TheoryParticles3DProps {
   theoryA?: CollisionTheory;
