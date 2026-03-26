@@ -517,33 +517,26 @@ export default function CollisionEnginePage() {
             </div>
           )}
 
-          {/* Collision animation */}
-          {isColliding && (
-            <CollisionAnimation colorA={colorA} colorB={colorB} />
-          )}
+          {/* 3D Visualization — always visible */}
+          <div className="flex-1 min-h-[300px] rounded-lg border border-border/30 overflow-hidden bg-black/20">
+            <TheoryParticles3D
+              theoryA={selectedTheories[0]}
+              theoryB={selectedTheories[1]}
+              isColliding={isColliding}
+              hasResult={!!currentResult}
+            />
+          </div>
 
           {/* Result */}
           <div ref={resultRef}>
             {currentResult && !isColliding && (
-              <Card className="bg-card/50 border-card-border">
+              <Card className="bg-card/50 border-card-border mt-4">
                 <CardContent className="p-5">
                   <ResultCard result={currentResult} />
                 </CardContent>
               </Card>
             )}
           </div>
-
-          {/* 3D Visualization */}
-          {!currentResult && !isColliding && (
-            <div className="flex-1 min-h-[300px] rounded-lg border border-border/30 overflow-hidden bg-black/20">
-              <TheoryParticles3D
-                theoryA={selectedTheories[0]}
-                theoryB={selectedTheories[1]}
-                isColliding={isColliding}
-                hasResult={!!currentResult}
-              />
-            </div>
-          )}
         </div>
 
         {/* ─── RIGHT: History ─── */}
