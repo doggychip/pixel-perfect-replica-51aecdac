@@ -66,12 +66,12 @@ function ParticleCloud({ theory, color }: { theory: CollisionTheory; color: stri
       }
 
       dummy.position.set(x, y, z);
-      dummy.scale.setScalar(0.025);
+      dummy.scale.setScalar(0.04);
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);
 
-      // Slight brightness variation
-      const brightness = 0.8 + Math.sin(t * 2 + i * 0.3) * 0.2;
+      // Bright color for dark mode visibility
+      const brightness = 1.0 + Math.sin(t * 2 + i * 0.3) * 0.15;
       tempColor.copy(threeColor).multiplyScalar(brightness);
       meshRef.current.setColorAt(i, tempColor);
     }
@@ -82,7 +82,7 @@ function ParticleCloud({ theory, color }: { theory: CollisionTheory; color: stri
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, particles.length]}>
       <sphereGeometry args={[1, 6, 6]} />
-      <meshBasicMaterial transparent opacity={0.8} blending={THREE.AdditiveBlending} depthWrite={false} vertexColors />
+      <meshBasicMaterial transparent opacity={1} depthWrite={false} vertexColors />
     </instancedMesh>
   );
 }
