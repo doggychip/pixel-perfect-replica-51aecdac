@@ -135,13 +135,16 @@ function NebulaCloud({
   const color = useMemo(() => new THREE.Color(DOMAIN_COLORS[theory.domain as DomainKey] ?? "#888"), [theory]);
   const idleOffsetX = side === "left" ? -2.2 : 2.2;
 
+  const totalParticleCount = Math.min(400, 80 + theory.factors.length * 60);
+
   const particles = useMemo(() => {
+    const count = Math.min(400, 80 + theory.factors.length * 60);
     const pts: { pos: THREE.Vector3; coreIdx: number; speed: number; motion: number; phase: number }[] = [];
     const factorCores = theory.factors.map((f, i) => ({
       pos: factorToPosition(f, i, theory.factors.length),
       motion: getMotionType(f),
     }));
-    const countPerCore = Math.floor(250 / Math.max(theory.factors.length, 1));
+    const countPerCore = Math.floor(count / Math.max(theory.factors.length, 1));
 
     factorCores.forEach((core, ci) => {
       for (let j = 0; j < countPerCore; j++) {
