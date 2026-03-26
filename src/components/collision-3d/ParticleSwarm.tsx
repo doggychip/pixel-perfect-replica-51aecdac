@@ -189,11 +189,13 @@ export default function ParticleSwarm({
       meshRef.current.setMatrixAt(i, dummy.matrix);
 
       tempColor.copy(domainColor);
-      if (phase === "beam") tempColor.lerp(white, Math.min(phaseProgress * 2, 1) * 0.35);
-      if (phase === "collide" || phase === "explode") tempColor.lerp(white, phaseProgress * 0.65);
-      const shimmer = Math.sin(t * 4 + i * 0.5) * 0.12;
-      tempColor.r = Math.min(1, tempColor.r + shimmer);
-      tempColor.g = Math.min(1, tempColor.g + shimmer * 0.5);
+      if (phase === "beam") tempColor.lerp(white, Math.min(phaseProgress * 2, 1) * 0.2);
+      if (phase === "collide" || phase === "explode") tempColor.lerp(white, phaseProgress * 0.4);
+      // Shimmer that preserves hue - brighten proportionally
+      const shimmer = 1 + Math.sin(t * 4 + i * 0.5) * 0.15;
+      tempColor.r = Math.min(1, tempColor.r * shimmer);
+      tempColor.g = Math.min(1, tempColor.g * shimmer);
+      tempColor.b = Math.min(1, tempColor.b * shimmer);
       meshRef.current.setColorAt(i, tempColor);
     }
 
@@ -211,10 +213,10 @@ export default function ParticleSwarm({
         <meshBasicMaterial color={domainColor} transparent opacity={0.2} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
 
-      {/* Core glowing sphere - bright and visible */}
+      {/* Core glowing sphere - domain colored */}
       <mesh ref={glowRef} position={nodePos}>
         <sphereGeometry args={[0.28, 24, 24]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.95} />
+        <meshBasicMaterial color={domainColor} transparent opacity={0.95} />
       </mesh>
 
       {/* Second glow layer with domain color */}
