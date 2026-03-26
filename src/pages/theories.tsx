@@ -200,7 +200,12 @@ function TheoryDetailDialog({ theory, open, onClose }: { theory: Theory | null; 
   );
 }
 
-function TheoriesGrid({ search }: { search: string }) {
+function TheoriesGrid({ search, onCompare, isComparable, isSelected }: {
+  search: string;
+  onCompare: (theory: Theory) => void;
+  isComparable: (theory: Theory) => boolean;
+  isSelected: (theory: Theory) => boolean;
+}) {
   const theoryList = useMemo(() => Object.values(theories), []);
 
   // Group by domain
@@ -245,7 +250,7 @@ function TheoriesGrid({ search }: { search: string }) {
             {domainTheories.map(t => (
               <Card
                 key={t.id}
-                className="bg-card/50 border-card-border cursor-pointer hover:bg-accent/20 transition-all hover:shadow-md group"
+                className={`bg-card/50 border-card-border cursor-pointer hover:bg-accent/20 transition-all hover:shadow-md group ${isSelected(t) ? "ring-1 ring-cyan-400/50" : ""}`}
                 onClick={() => setSelected(t)}
               >
                 <CardContent className="p-4">
@@ -253,7 +258,19 @@ function TheoriesGrid({ search }: { search: string }) {
                     <h3 className="font-semibold text-sm leading-tight group-hover:text-cyan-400 transition-colors">
                       {t.name}
                     </h3>
-                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
+                    <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+                      {isComparable(t) && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onCompare(t); }}
+                          className={`p-1 rounded transition-colors ${isSelected(t) ? "text-cyan-400 bg-cyan-400/10" : "text-muted-foreground/40 hover:text-muted-foreground"}`}
+                          title="Compare in 3D"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </div>
                   </div>
                   {t.equation && (
                     <code className="text-[11px] text-muted-foreground font-mono block mb-2 truncate">
