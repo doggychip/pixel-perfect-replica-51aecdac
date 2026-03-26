@@ -138,9 +138,8 @@ function Scene({ theoryA, theoryB, isColliding, hasResult, emergentName, onPhase
     const durations: Record<Phase, number> = {
       idle: 0,
       beam: 1.8,
-      collide: 1.0,
-      explode: 1.2,
-      emerge: 2.6,
+      collide: 1.5,
+      emerge: 3.0,
     };
 
     const duration = durations[phase];
@@ -148,7 +147,7 @@ function Scene({ theoryA, theoryB, isColliding, hasResult, emergentName, onPhase
     setPhaseProgress((prev) => (Math.abs(prev - nextProgress) > 0.01 ? nextProgress : prev));
 
     if (elapsed >= duration) {
-      const next = phase === "beam" ? "collide" : phase === "collide" ? "explode" : phase === "explode" ? "emerge" : null;
+      const next = phase === "beam" ? "collide" : phase === "collide" ? "emerge" : null;
       if (next) {
         setPhase(next);
         phaseStartRef.current = clock.getElapsedTime();
