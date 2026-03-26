@@ -103,7 +103,7 @@ export default function TheoryParticlePreview({
   theory: CollisionTheory;
   side: "left" | "right";
 }) {
-  const color = side === "left" ? "#3b82f6" : "#ef4444";
+  const color = DOMAIN_COLORS[theory.domain as DomainKey] ?? (side === "left" ? "#3b82f6" : "#ef4444");
 
   return (
     <div className="w-full h-full min-h-[120px]">
