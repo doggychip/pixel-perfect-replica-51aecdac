@@ -233,22 +233,4 @@ export default function ParticleSwarm({
       )}
     </group>
   );
-
-      {showLabels && (
-        <Html position={[nodePos.x, nodePos.y - 2.2, nodePos.z]} center>
-          <div className="text-center pointer-events-none select-none">
-            <div
-              className="text-sm font-bold px-3 py-1.5 rounded-lg bg-black/80 border border-white/10 backdrop-blur-sm"
-              style={{ color: `#${domainColor.getHexString()}`, textShadow: `0 0 10px #${domainColor.getHexString()}60` }}
-            >
-              {theory.name}
-            </div>
-            <div className="text-[10px] text-white/45 mt-1 font-mono">
-              {particles.length} particles · {theory.factors.length} factors
-            </div>
-          </div>
-        </Html>
-      )}
-    </group>
-  );
 }
