@@ -108,9 +108,10 @@ export default function TheoryParticlePreview({
   return (
     <div className="w-full h-full min-h-[120px]">
       <Canvas
+        dpr={[1, 1.2]}
         camera={{ position: [0, 0, 2.5], fov: 50 }}
         style={{ background: "transparent" }}
-        gl={{ alpha: true, antialias: true }}
+        gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
       >
         <Scene theory={theory} color={color} />
       </Canvas>

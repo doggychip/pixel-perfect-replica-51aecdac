@@ -12,8 +12,7 @@ interface SwarmParticle {
   orbitRadius: number;
   orbitSpeed: number;
   orbitPhase: number;
-  orbitTilt: number;
-  size: number; // 0.01-0.04 for depth variation
+  size: number;
   factorIdx: number;
 }
 
@@ -42,38 +41,38 @@ export default function ParticleSwarm({
 }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
+  const haloRef = useRef<THREE.Mesh>(null);
   const domainColor = useMemo(
     () => new THREE.Color(DOMAIN_COLORS[theory.domain as DomainKey] ?? "#3b82f6"),
     [theory.domain]
   );
 
   const nodePos = useMemo(
-    () => new THREE.Vector3(side === "left" ? -3.5 : 3.5, 0, 0),
+    () => new THREE.Vector3(side === "left" ? -3.1 : 3.1, 0, 0),
     [side]
   );
 
-  const COUNT = Math.min(300, 80 + theory.factors.length * 50);
+  const COUNT = Math.min(260, 120 + theory.factors.length * 35);
 
   const particles = useMemo(() => {
     const pts: SwarmParticle[] = [];
     const perFactor = Math.floor(COUNT / Math.max(theory.factors.length, 1));
 
-    theory.factors.forEach((f, fi) => {
+    theory.factors.forEach((_, fi) => {
       const coreAngle = (fi / theory.factors.length) * Math.PI * 2;
       for (let j = 0; j < perFactor; j++) {
-        const r = 0.4 + Math.random() * 1.2;
-        const isLarge = Math.random() < 0.12;
+        const r = 0.55 + Math.random() * 1.35;
+        const isLarge = Math.random() < 0.18;
         pts.push({
           basePos: new THREE.Vector3(
-            Math.cos(coreAngle + (Math.random() - 0.5) * 1.5) * r,
-            (Math.random() - 0.5) * r * 0.8,
-            Math.sin(coreAngle + (Math.random() - 0.5) * 1.5) * r
+            Math.cos(coreAngle + (Math.random() - 0.5) * 1.8) * r,
+            (Math.random() - 0.5) * r * 0.9,
+            Math.sin(coreAngle + (Math.random() - 0.5) * 1.8) * r
           ),
-          orbitRadius: 0.03 + Math.random() * 0.15,
-          orbitSpeed: 0.5 + Math.random() * 2.0,
+          orbitRadius: 0.08 + Math.random() * 0.2,
+          orbitSpeed: 0.5 + Math.random() * 1.8,
           orbitPhase: Math.random() * Math.PI * 2,
-          orbitTilt: (Math.random() - 0.5) * Math.PI * 0.6,
-          size: isLarge ? 0.025 + Math.random() * 0.02 : 0.008 + Math.random() * 0.012,
+          size: isLarge ? 0.05 + Math.random() * 0.03 : 0.02 + Math.random() * 0.018,
           factorIdx: fi,
         });
       }
@@ -89,12 +88,17 @@ export default function ParticleSwarm({
     if (!meshRef.current) return;
     const t = clock.getElapsedTime();
 
-    // Glowing node sphere pulse
     if (glowRef.current) {
       const pulse = 1 + Math.sin(t * 2) * 0.08;
-      const opacity = phase === "explode" || phase === "emerge" ? Math.max(0, 1 - phaseProgress) : 1;
-      glowRef.current.scale.setScalar(0.18 * pulse);
-      (glowRef.current.material as THREE.MeshBasicMaterial).opacity = 0.9 * opacity;
+      const opacity = phase === "explode" || phase === "emerge" ? Math.max(0.15, 1 - phaseProgress) : 1;
+      glowRef.current.scale.setScalar(0.32 * pulse);
+      (glowRef.current.material as THREE.MeshBasicMaterial).opacity = 0.95 * opacity;
+    }
+
+    if (haloRef.current) {
+      const haloPulse = 1 + Math.sin(t * 1.3) * 0.06;
+      haloRef.current.scale.setScalar(1.6 * haloPulse);
+      (haloRef.current.material as THREE.MeshBasicMaterial).opacity = 0.16;
     }
 
     for (let i = 0; i < particles.length; i++) {
@@ -102,71 +106,62 @@ export default function ParticleSwarm({
       const motion = classifyMotion(theory.factors[p.factorIdx] || "");
       const st = t * p.orbitSpeed + p.orbitPhase;
 
-      // Base position relative to node
       let x = nodePos.x + p.basePos.x;
       let y = nodePos.y + p.basePos.y;
       let z = nodePos.z + p.basePos.z;
 
-      // Orbital motion variations
       switch (motion) {
-        case 0: // wave
-          y += Math.sin(st * 2.0 + x * 2) * 0.15;
-          x += Math.cos(st * 0.7) * 0.05;
+        case 0:
+          y += Math.sin(st * 2.0 + x * 2) * 0.18;
+          x += Math.cos(st * 0.7) * 0.08;
           break;
-        case 1: // orbital
-          x += Math.cos(st * 1.3) * p.orbitRadius * 2;
-          z += Math.sin(st * 1.3) * p.orbitRadius * 2;
+        case 1:
+          x += Math.cos(st * 1.3) * p.orbitRadius * 1.8;
+          z += Math.sin(st * 1.3) * p.orbitRadius * 1.8;
           break;
-        case 2: // chaotic
-          x += Math.sin(st * 3.7 + i * 0.37) * 0.1;
-          y += Math.cos(st * 2.9 + i * 0.53) * 0.1;
-          z += Math.sin(st * 4.1 + i * 0.71) * 0.08;
+        case 2:
+          x += Math.sin(st * 3.7 + i * 0.37) * 0.14;
+          y += Math.cos(st * 2.9 + i * 0.53) * 0.14;
+          z += Math.sin(st * 4.1 + i * 0.71) * 0.1;
           break;
-        case 3: // pulsing
-          { const pulse = 1 + Math.sin(st * 2.5) * 0.2;
-            x = nodePos.x + p.basePos.x * pulse;
-            y = nodePos.y + p.basePos.y * pulse;
-            z = nodePos.z + p.basePos.z * pulse;
-          }
+        case 3: {
+          const pulse = 1 + Math.sin(st * 2.5) * 0.22;
+          x = nodePos.x + p.basePos.x * pulse;
+          y = nodePos.y + p.basePos.y * pulse;
+          z = nodePos.z + p.basePos.z * pulse;
           break;
-        case 4: // spiral
-          { const sa = st * 1.5;
-            x += Math.cos(sa) * p.orbitRadius * 1.5;
-            y += Math.sin(sa * 0.3) * 0.08;
-            z += Math.sin(sa) * p.orbitRadius * 1.5;
-          }
+        }
+        case 4: {
+          const sa = st * 1.5;
+          x += Math.cos(sa) * p.orbitRadius * 1.6;
+          y += Math.sin(sa * 0.3) * 0.1;
+          z += Math.sin(sa) * p.orbitRadius * 1.6;
           break;
-        default: // lattice tremor
-          x += Math.sin(st * 6 + i) * 0.02;
-          y += Math.cos(st * 5 + i * 0.7) * 0.02;
+        }
+        default:
+          x += Math.sin(st * 6 + i) * 0.03;
+          y += Math.cos(st * 5 + i * 0.7) * 0.03;
       }
 
-      // ─── Phase-based transforms ───
       if (phase === "beam") {
-        // Particles stream toward collision point along curved paths
         const beamT = Math.min(phaseProgress * 1.5, 1);
-        const particleDelay = (i / particles.length) * 0.6;
-        const individualT = Math.max(0, Math.min(1, (beamT - particleDelay) / (1 - particleDelay)));
-        
+        const particleDelay = (i / particles.length) * 0.55;
+        const individualT = Math.max(0, Math.min(1, (beamT - particleDelay) / Math.max(0.2, 1 - particleDelay)));
+
         if (individualT > 0) {
-          // Curved beam path
           const curveOffset = Math.sin(individualT * Math.PI) * (side === "left" ? -0.5 : 0.5);
-          const tx = x + (collisionPoint.x - x) * individualT;
-          const ty = y + (collisionPoint.y - y) * individualT + curveOffset * 0.3;
-          const tz = z + (collisionPoint.z - z) * individualT;
-          x = tx;
-          y = ty;
-          z = tz;
+          x = x + (collisionPoint.x - x) * individualT;
+          y = y + (collisionPoint.y - y) * individualT + curveOffset * 0.32;
+          z = z + (collisionPoint.z - z) * individualT;
         }
       } else if (phase === "collide" || phase === "explode") {
-        // Converge to center then blast outward
         const converge = phase === "collide" ? phaseProgress : 1;
-        const explodeForce = phase === "explode" ? phaseProgress * 4 * p.orbitSpeed : 0;
-        
+        const explodeForce = phase === "explode" ? phaseProgress * 3.2 * p.orbitSpeed : 0;
+
         x = x * (1 - converge) + collisionPoint.x * converge;
         y = y * (1 - converge) + collisionPoint.y * converge;
         z = z * (1 - converge) + collisionPoint.z * converge;
-        
+
         if (explodeForce > 0) {
           const dir = p.basePos.clone().normalize();
           x += dir.x * explodeForce;
@@ -174,7 +169,6 @@ export default function ParticleSwarm({
           z += dir.z * explodeForce;
         }
       } else if (phase === "emerge") {
-        // Fade out original particles
         const fadeOut = Math.min(phaseProgress * 2, 1);
         const shrink = 1 - fadeOut;
         dummy.position.set(x, y, z);
@@ -187,26 +181,17 @@ export default function ParticleSwarm({
       }
 
       dummy.position.set(x, y, z);
-
-      // Size with phase modulation
       let scale = p.size;
-      if (phase === "collide") scale *= 1 + phaseProgress * 0.5;
-      if (phase === "explode") scale *= Math.max(0.2, 1 - phaseProgress * 0.7);
+      if (phase === "collide") scale *= 1 + phaseProgress * 0.6;
+      if (phase === "explode") scale *= Math.max(0.28, 1 - phaseProgress * 0.6);
       dummy.scale.setScalar(Math.max(0.001, scale));
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);
 
-      // Color with energy glow during collision
       tempColor.copy(domainColor);
-      if (phase === "beam") {
-        const energy = Math.min(phaseProgress * 2, 1);
-        tempColor.lerp(white, energy * 0.3);
-      }
-      if (phase === "collide" || phase === "explode") {
-        tempColor.lerp(white, phaseProgress * 0.6);
-      }
-      // Shimmer
-      const shimmer = Math.sin(t * 4 + i * 0.5) * 0.1;
+      if (phase === "beam") tempColor.lerp(white, Math.min(phaseProgress * 2, 1) * 0.35);
+      if (phase === "collide" || phase === "explode") tempColor.lerp(white, phaseProgress * 0.65);
+      const shimmer = Math.sin(t * 4 + i * 0.5) * 0.12;
       tempColor.r = Math.min(1, tempColor.r + shimmer);
       tempColor.g = Math.min(1, tempColor.g + shimmer * 0.5);
       meshRef.current.setColorAt(i, tempColor);
@@ -220,41 +205,21 @@ export default function ParticleSwarm({
 
   return (
     <group>
-      {/* Glowing theory node sphere */}
+      <mesh ref={haloRef} position={nodePos}>
+        <sphereGeometry args={[0.42, 24, 24]} />
+        <meshBasicMaterial color={domainColor} transparent opacity={0.16} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+
       <mesh ref={glowRef} position={nodePos}>
-        <sphereGeometry args={[1, 32, 32]} />
-        <meshBasicMaterial
-          color={domainColor}
-          transparent
-          opacity={0.9}
-          blending={THREE.AdditiveBlending}
-        />
+        <sphereGeometry args={[1, 24, 24]} />
+        <meshBasicMaterial color={domainColor} transparent opacity={0.95} blending={THREE.AdditiveBlending} />
       </mesh>
 
-      {/* Outer glow halo */}
-      <mesh position={nodePos}>
-        <sphereGeometry args={[0.35, 32, 32]} />
-        <meshBasicMaterial
-          color={domainColor}
-          transparent
-          opacity={0.15}
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
-
-      {/* Particle swarm */}
-      <instancedMesh ref={meshRef} args={[undefined, undefined, COUNT]}>
-        <sphereGeometry args={[1, 6, 6]} />
-        <meshBasicMaterial
-          transparent
-          opacity={0.85}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          vertexColors
-        />
+      <instancedMesh ref={meshRef} args={[undefined, undefined, particles.length]}>
+        <sphereGeometry args={[1, 5, 5]} />
+        <meshBasicMaterial transparent opacity={0.92} blending={THREE.AdditiveBlending} depthWrite={false} vertexColors />
       </instancedMesh>
 
-      {/* Labels */}
       {showLabels && (
         <Html position={[nodePos.x, nodePos.y - 2.2, nodePos.z]} center>
           <div className="text-center pointer-events-none select-none">
@@ -264,19 +229,8 @@ export default function ParticleSwarm({
             >
               {theory.name}
             </div>
-            <div className="text-[10px] text-white/40 mt-1 font-mono">
-              {COUNT} particles · {theory.factors.length} factors
-            </div>
-            <div className="flex flex-wrap justify-center gap-1 mt-1.5 max-w-[200px]">
-              {theory.factors.map((f) => (
-                <span
-                  key={f}
-                  className="text-[8px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10"
-                  style={{ color: `#${domainColor.getHexString()}` }}
-                >
-                  {f}
-                </span>
-              ))}
+            <div className="text-[10px] text-white/45 mt-1 font-mono">
+              {particles.length} particles · {theory.factors.length} factors
             </div>
           </div>
         </Html>

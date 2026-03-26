@@ -20,48 +20,49 @@ interface TheoryParticles3DProps {
 
 const COLLISION_CENTER = new THREE.Vector3(0, 0, 0);
 
-// ─── Camera Shake ───────────────────────────────────────────
 function CameraShake({ intensity }: { intensity: number }) {
   const { camera } = useThree();
-  const basePos = useRef(new THREE.Vector3(0, 1.5, 8));
+  const basePos = useRef(new THREE.Vector3(0, 1.2, 7.4));
 
   useFrame(({ clock }) => {
     if (intensity <= 0) {
-      camera.position.copy(basePos.current);
+      camera.position.lerp(basePos.current, 0.12);
       return;
     }
+
     const t = clock.getElapsedTime();
-    const shake = intensity * 0.15;
+    const shake = intensity * 0.1;
     camera.position.set(
       basePos.current.x + Math.sin(t * 35) * shake,
       basePos.current.y + Math.cos(t * 28) * shake,
-      basePos.current.z + Math.sin(t * 40) * shake * 0.5
+      basePos.current.z + Math.sin(t * 40) * shake * 0.45
     );
   });
 
   return null;
 }
 
-// ─── Nebula Background ──────────────────────────────────────
 function NebulaBackground() {
   const meshRef = useRef<THREE.InstancedMesh>(null);
-  const COUNT = 40;
+  const COUNT = 18;
 
-  const clouds = useMemo(() =>
-    Array.from({ length: COUNT }, () => ({
-      pos: new THREE.Vector3(
-        (Math.random() - 0.5) * 30,
-        (Math.random() - 0.5) * 20,
-        -10 - Math.random() * 15
-      ),
-      size: 1.5 + Math.random() * 4,
-      color: new THREE.Color().setHSL(
-        Math.random() < 0.5 ? 0.55 + Math.random() * 0.15 : 0.8 + Math.random() * 0.1,
-        0.3,
-        0.05 + Math.random() * 0.03
-      ),
-      drift: 0.1 + Math.random() * 0.2,
-    })), []
+  const clouds = useMemo(
+    () =>
+      Array.from({ length: COUNT }, () => ({
+        pos: new THREE.Vector3(
+          (Math.random() - 0.5) * 24,
+          (Math.random() - 0.5) * 14,
+          -10 - Math.random() * 12
+        ),
+        size: 1.8 + Math.random() * 3.2,
+        color: new THREE.Color().setHSL(
+          Math.random() < 0.5 ? 0.55 + Math.random() * 0.1 : 0.8 + Math.random() * 0.06,
+          0.25,
+          0.05 + Math.random() * 0.025
+        ),
+        drift: 0.08 + Math.random() * 0.12,
+      })),
+    []
   );
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
@@ -72,8 +73,8 @@ function NebulaBackground() {
     for (let i = 0; i < COUNT; i++) {
       const c = clouds[i];
       dummy.position.set(
-        c.pos.x + Math.sin(t * c.drift) * 0.5,
-        c.pos.y + Math.cos(t * c.drift * 0.7) * 0.3,
+        c.pos.x + Math.sin(t * c.drift) * 0.35,
+        c.pos.y + Math.cos(t * c.drift * 0.7) * 0.2,
         c.pos.z
       );
       dummy.scale.setScalar(c.size);
@@ -87,48 +88,47 @@ function NebulaBackground() {
 
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, COUNT]}>
-      <sphereGeometry args={[1, 8, 8]} />
-      <meshBasicMaterial transparent opacity={0.4} blending={THREE.AdditiveBlending} depthWrite={false} vertexColors />
+      <sphereGeometry args={[1, 6, 6]} />
+      <meshBasicMaterial transparent opacity={0.28} blending={THREE.AdditiveBlending} depthWrite={false} vertexColors />
     </instancedMesh>
   );
 }
 
-// ─── Scene Orchestrator ─────────────────────────────────────
-function Scene({ theoryA, theoryB, isColliding, hasResult, emergentName }: TheoryParticles3DProps) {
+function Scene({ theoryA, theoryB, isColliding, hasResult, emergentName, onPhaseChange }: TheoryParticles3DProps & { onPhaseChange: (phase: Phase, progress: number) => void }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [phaseProgress, setPhaseProgress] = useState(0);
   const phaseStartRef = useRef(0);
   const prevCollidingRef = useRef(false);
 
-  // Phase transitions triggered by isColliding
   useEffect(() => {
     if (isColliding && !prevCollidingRef.current) {
       setPhase("beam");
       phaseStartRef.current = 0;
+      setPhaseProgress(0);
     }
     prevCollidingRef.current = isColliding;
   }, [isColliding]);
 
-  // When result arrives, jump to emerge if still in explode
   useEffect(() => {
-    if (hasResult && phase !== "emerge" && phase !== "idle") {
-      // Stay in current animation, will transition naturally
-    } else if (hasResult && phase === "idle") {
+    if (hasResult && phase === "idle") {
       setPhase("emerge");
       phaseStartRef.current = 0;
+      setPhaseProgress(0);
     }
-  }, [hasResult]);
+  }, [hasResult, phase]);
 
-  // Reset when no result and not colliding
   useEffect(() => {
     if (!hasResult && !isColliding && phase !== "idle") {
       setPhase("idle");
       phaseStartRef.current = 0;
       setPhaseProgress(0);
     }
-  }, [hasResult, isColliding]);
+  }, [hasResult, isColliding, phase]);
 
-  // Phase timing
+  useEffect(() => {
+    onPhaseChange(phase, phaseProgress);
+  }, [phase, phaseProgress, onPhaseChange]);
+
   useFrame(({ clock }) => {
     if (phase === "idle") return;
 
@@ -137,22 +137,18 @@ function Scene({ theoryA, theoryB, isColliding, hasResult, emergentName }: Theor
 
     const durations: Record<Phase, number> = {
       idle: 0,
-      beam: 2.0,
-      collide: 1.2,
-      explode: 1.5,
-      emerge: 3.0,
+      beam: 1.8,
+      collide: 1.0,
+      explode: 1.2,
+      emerge: 2.6,
     };
 
     const duration = durations[phase];
-    setPhaseProgress(Math.min(elapsed / duration, 1));
+    const nextProgress = Math.min(elapsed / duration, 1);
+    setPhaseProgress((prev) => (Math.abs(prev - nextProgress) > 0.01 ? nextProgress : prev));
 
     if (elapsed >= duration) {
-      const transitions: Partial<Record<Phase, Phase>> = {
-        beam: "collide",
-        collide: "explode",
-        explode: "emerge",
-      };
-      const next = transitions[phase];
+      const next = phase === "beam" ? "collide" : phase === "collide" ? "explode" : phase === "explode" ? "emerge" : null;
       if (next) {
         setPhase(next);
         phaseStartRef.current = clock.getElapsedTime();
@@ -161,86 +157,62 @@ function Scene({ theoryA, theoryB, isColliding, hasResult, emergentName }: Theor
     }
   });
 
-  const shakeIntensity = phase === "collide" ? phaseProgress : phase === "explode" ? Math.max(0, 1 - phaseProgress) * 0.7 : 0;
-  const showSwarms = phase !== "emerge" || phaseProgress < 0.5;
-  const showFX = phase === "explode" || phase === "collide";
-  const showEmergent = phase === "emerge";
-  const showRipples = phase === "emerge" || (phase === "explode" && phaseProgress > 0.5);
+  const shakeIntensity = phase === "collide" ? phaseProgress : phase === "explode" ? Math.max(0, 1 - phaseProgress) * 0.6 : 0;
+  const showSwarms = phase !== "emerge" || phaseProgress < 0.45;
 
   return (
     <>
-      <ambientLight intensity={0.15} />
-      <Stars radius={80} depth={60} count={2000} factor={3} saturation={0.15} fade speed={0.3} />
+      <ambientLight intensity={0.2} />
+      <Stars radius={70} depth={50} count={900} factor={2.2} saturation={0.15} fade speed={0.25} />
       <NebulaBackground />
-      <OrbitControls enablePan={false} enableZoom minDistance={4} maxDistance={16} />
+      <OrbitControls enablePan={false} enableZoom minDistance={4} maxDistance={14} />
       <CameraShake intensity={shakeIntensity} />
 
       {theoryA && showSwarms && (
-        <ParticleSwarm
-          theory={theoryA}
-          side="left"
-          phase={phase}
-          phaseProgress={phaseProgress}
-          collisionPoint={COLLISION_CENTER}
-        />
+        <ParticleSwarm theory={theoryA} side="left" phase={phase} phaseProgress={phaseProgress} collisionPoint={COLLISION_CENTER} />
       )}
 
       {theoryB && showSwarms && (
-        <ParticleSwarm
-          theory={theoryB}
-          side="right"
-          phase={phase}
-          phaseProgress={phaseProgress}
-          collisionPoint={COLLISION_CENTER}
-        />
+        <ParticleSwarm theory={theoryB} side="right" phase={phase} phaseProgress={phaseProgress} collisionPoint={COLLISION_CENTER} />
       )}
 
-      {/* Collision effects */}
-      {phase === "collide" && (
-        <CentralFlash progress={phaseProgress} center={COLLISION_CENTER} />
-      )}
+      {phase === "collide" && <CentralFlash progress={phaseProgress} center={COLLISION_CENTER} />}
 
-      {showFX && (
+      {(phase === "explode" || phase === "collide") && (
         <>
           <SparkBurst progress={phaseProgress} center={COLLISION_CENTER} />
           <ShockwaveRings progress={phaseProgress} center={COLLISION_CENTER} />
         </>
       )}
 
-      {showRipples && (
+      {(phase === "emerge" || (phase === "explode" && phaseProgress > 0.5)) && (
         <EnergyRipples center={COLLISION_CENTER} intensity={phase === "emerge" ? 1 : phaseProgress * 0.5} />
       )}
 
-      {/* Emergent hybrid cloud */}
-      {showEmergent && theoryA && theoryB && (
-        <EmergentCloud
-          theoryA={theoryA}
-          theoryB={theoryB}
-          progress={phaseProgress}
-          center={COLLISION_CENTER}
-          emergentName={emergentName}
-        />
+      {phase === "emerge" && theoryA && theoryB && (
+        <EmergentCloud theoryA={theoryA} theoryB={theoryB} progress={phaseProgress} center={COLLISION_CENTER} emergentName={emergentName} />
       )}
     </>
   );
 }
 
-// ─── Export ──────────────────────────────────────────────────
 export default function TheoryParticles3D(props: TheoryParticles3DProps) {
+  const [hudPhase, setHudPhase] = useState<Phase>("idle");
+  const [hudProgress, setHudProgress] = useState(0);
+
   return (
-    <div className="w-full h-full min-h-[300px] relative">
-      <HUD
-        theoryA={props.theoryA}
-        theoryB={props.theoryB}
-        phase={props.isColliding ? "beam" : props.hasResult ? "emerge" : "idle"}
-        phaseProgress={0}
-      />
+    <div className="w-full h-full min-h-[300px] relative bg-black">
+      <HUD theoryA={props.theoryA} theoryB={props.theoryB} phase={hudPhase} phaseProgress={hudProgress} />
       <Canvas
-        camera={{ position: [0, 1.5, 8], fov: 50 }}
+        dpr={[1, 1.25]}
+        camera={{ position: [0, 1.2, 7.4], fov: 52 }}
         style={{ background: "transparent" }}
-        gl={{ alpha: true, antialias: true }}
+        gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
       >
-        <Scene {...props} />
+        <Scene {...props} onPhaseChange={(phase, progress) => {
+          setHudPhase(phase);
+          setHudProgress(progress);
+        }} />
       </Canvas>
     </div>
   );
