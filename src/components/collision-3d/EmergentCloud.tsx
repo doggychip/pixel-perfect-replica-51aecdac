@@ -2,15 +2,25 @@ import { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
-import type { CollisionTheory, DomainKey } from "@/data/collision-theories";
-import { DOMAIN_COLORS } from "@/data/collision-theories";
+import type { CollisionTheory } from "@/data/collision-theories";
+import { getGlowTexture } from "./glowTexture";
 
-interface EmergentParticle {
+// Emergent palette: electric blue, warm amber, white-hot, plus parent remnants
+const EMERGENT_COLORS = [
+  "#3366ff", "#ffaa00", "#ffffff", "#00ffff", "#ff00ff",
+  "#66ccff", "#ffcc33", "#ff66cc", "#33ffaa",
+];
+
+interface EPData {
   dir: THREE.Vector3;
   speed: number;
-  spiralPhase: number;
   size: number;
-  isStar: boolean; // star-shaped = pulsing glow
+  brightness: number;
+  colorIdx: number;
+  brownianSeed: number;
+  pulseSpeed: number;
+  pulsePhase: number;
+  flashTimer: number; // when this particle "flashes"
 }
 
 export default function EmergentCloud({
@@ -26,118 +36,175 @@ export default function EmergentCloud({
   center: THREE.Vector3;
   emergentName?: string;
 }) {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-  const colorA = useMemo(() => new THREE.Color(DOMAIN_COLORS[theoryA.domain as DomainKey] ?? "#3b82f6"), [theoryA]);
-  const colorB = useMemo(() => new THREE.Color(DOMAIN_COLORS[theoryB.domain as DomainKey] ?? "#ef4444"), [theoryB]);
-  const blendedColor = useMemo(() => new THREE.Color().copy(colorA).lerp(colorB, 0.5), [colorA, colorB]);
+  const pointsRef = useRef<THREE.Points>(null);
 
-  const COUNT = 250;
+  // 20% fewer than combined parent count
+  const parentCount = Math.min(300, 140 + theoryA.factors.length * 30) +
+                      Math.min(300, 140 + theoryB.factors.length * 30);
+  const COUNT = Math.floor(parentCount * 0.8);
+
   const particles = useMemo(() => {
     return Array.from({ length: COUNT }, (_, i) => {
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
-      const r = 0.5 + Math.random() * 2;
-      const isStar = Math.random() < 0.15;
+      const tier = Math.random();
+      const size = tier < 0.5 ? 0.04 + Math.random() * 0.04
+                 : tier < 0.85 ? 0.1 + Math.random() * 0.08
+                 : 0.2 + Math.random() * 0.15;
       return {
         dir: new THREE.Vector3(
           Math.sin(phi) * Math.cos(theta),
           Math.sin(phi) * Math.sin(theta),
           Math.cos(phi)
         ),
-        speed: 0.3 + Math.random() * 0.8,
-        spiralPhase: Math.random() * Math.PI * 2,
-        size: isStar ? 0.025 + Math.random() * 0.02 : 0.008 + Math.random() * 0.012,
-        isStar,
-      } as EmergentParticle;
+        speed: 0.4 + Math.random() * 1.2,
+        size,
+        brightness: 0.6 + Math.random() * 0.4,
+        colorIdx: Math.floor(Math.random() * EMERGENT_COLORS.length),
+        brownianSeed: Math.random() * 1000,
+        pulseSpeed: 1.2 + Math.random() * 2.0,
+        pulsePhase: Math.random() * Math.PI * 2,
+        flashTimer: 3 + Math.random() * 8, // flash every N seconds
+      } as EPData;
     });
-  }, []);
+  }, [COUNT]);
 
-  const dummy = useMemo(() => new THREE.Object3D(), []);
-  const tempColor = useMemo(() => new THREE.Color(), []);
+  const { positions, colors, sizes, brightness } = useMemo(() => ({
+    positions: new Float32Array(COUNT * 3),
+    colors: new Float32Array(COUNT * 3),
+    sizes: new Float32Array(COUNT),
+    brightness: new Float32Array(COUNT),
+  }), [COUNT]);
+
+  const glowTex = useMemo(() => getGlowTexture(), []);
+
+  const shaderMat = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        uTexture: { value: glowTex },
+        uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
+      },
+      vertexShader: `
+        attribute float aSize;
+        attribute float aBrightness;
+        varying vec3 vColor;
+        varying float vBrightness;
+        uniform float uPixelRatio;
+        void main() {
+          vColor = color;
+          vBrightness = aBrightness;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = aSize * uPixelRatio * (200.0 / -mvPosition.z);
+          gl_PointSize = clamp(gl_PointSize, 1.0, 128.0);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uTexture;
+        varying vec3 vColor;
+        varying float vBrightness;
+        void main() {
+          vec4 tex = texture2D(uTexture, gl_PointCoord);
+          float alpha = tex.r * vBrightness;
+          vec3 finalColor = mix(vColor, vec3(1.0), tex.r * tex.r);
+          gl_FragColor = vec4(finalColor * vBrightness, alpha);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      vertexColors: true,
+    });
+  }, [glowTex]);
 
   useFrame(({ clock }) => {
-    if (!meshRef.current) return;
+    if (!pointsRef.current) return;
+    const geo = pointsRef.current.geometry;
     const t = clock.getElapsedTime();
-    const appearFade = Math.min(progress * 2, 1);
+    const appearFade = Math.min(progress * 2.5, 1);
 
     for (let i = 0; i < COUNT; i++) {
       const p = particles[i];
-      // Spiral outward from center
-      const spiralAngle = t * p.speed + p.spiralPhase;
-      const expandR = progress * 1.5 * p.speed;
-      const x = center.x + p.dir.x * expandR + Math.cos(spiralAngle) * 0.15;
-      const y = center.y + p.dir.y * expandR + Math.sin(spiralAngle * 0.7) * 0.1;
-      const z = center.z + p.dir.z * expandR + Math.sin(spiralAngle) * 0.15;
+      const i3 = i * 3;
 
-      dummy.position.set(x, y, z);
+      // Energetic Brownian motion (faster than idle)
+      const bx = Math.sin(t * 0.6 + p.brownianSeed) * 0.25 + Math.sin(t * 1.2 + p.brownianSeed * 2) * 0.12;
+      const by = Math.cos(t * 0.5 + p.brownianSeed * 1.3) * 0.2 + Math.sin(t * 0.9 + p.brownianSeed * 3) * 0.1;
+      const bz = Math.sin(t * 0.7 + p.brownianSeed * 0.7) * 0.18 + Math.cos(t * 1.1 + p.brownianSeed * 1.7) * 0.1;
 
-      // Star-shaped particles pulse
-      let scale = p.size * appearFade;
-      if (p.isStar) {
-        scale *= 1 + Math.sin(t * 6 + i) * 0.4;
+      const expandR = progress * 1.8 * p.speed;
+      const x = center.x + p.dir.x * expandR + bx;
+      const y = center.y + p.dir.y * expandR + by;
+      const z = center.z + p.dir.z * expandR + bz;
+
+      positions[i3] = x;
+      positions[i3 + 1] = y;
+      positions[i3 + 2] = z;
+
+      // Pulsing with occasional flashes
+      let scale = p.size * appearFade * (0.8 + 0.4 * Math.sin(t * p.pulseSpeed + p.pulsePhase));
+
+      // Interaction flash
+      const flashCycle = t % p.flashTimer;
+      const isFlashing = flashCycle < 0.15;
+      let bright = p.brightness;
+      if (isFlashing) {
+        scale *= 1.8;
+        bright = 1.0;
       }
-      dummy.scale.setScalar(Math.max(0.001, scale));
-      dummy.updateMatrix();
-      meshRef.current.setMatrixAt(i, dummy.matrix);
 
-      // Blended color with shimmer
-      tempColor.copy(blendedColor);
-      if (p.isStar) {
-        tempColor.lerp(new THREE.Color("#ffffff"), 0.3 + Math.sin(t * 8 + i) * 0.2);
-      }
-      const hueShift = Math.sin(t * 2 + i * 0.1) * 0.05;
-      tempColor.r = Math.min(1, tempColor.r + hueShift);
-      tempColor.b = Math.min(1, tempColor.b + hueShift);
-      meshRef.current.setColorAt(i, tempColor);
+      sizes[i] = Math.max(0.001, scale);
+      brightness[i] = bright;
+
+      const c = new THREE.Color(EMERGENT_COLORS[p.colorIdx]);
+      if (isFlashing) c.lerp(new THREE.Color("#ffffff"), 0.7);
+      colors[i3] = c.r;
+      colors[i3 + 1] = c.g;
+      colors[i3 + 2] = c.b;
     }
-    meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
+
+    geo.attributes.position.needsUpdate = true;
+    geo.attributes.color.needsUpdate = true;
+    geo.attributes.aSize.needsUpdate = true;
+    geo.attributes.aBrightness.needsUpdate = true;
   });
+
+  const brightnessInit = useMemo(() => {
+    const arr = new Float32Array(COUNT);
+    for (let i = 0; i < COUNT; i++) arr[i] = particles[i].brightness;
+    return arr;
+  }, [particles, COUNT]);
 
   return (
     <group>
-      <instancedMesh ref={meshRef} args={[undefined, undefined, COUNT]}>
-        <sphereGeometry args={[1, 8, 8]} />
-        <meshBasicMaterial
-          transparent
-          opacity={0.9}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          vertexColors
-        />
-      </instancedMesh>
+      <points ref={pointsRef} material={shaderMat}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[positions, 3]} count={COUNT} />
+          <bufferAttribute attach="attributes-color" args={[colors, 3]} count={COUNT} />
+          <bufferAttribute attach="attributes-aSize" args={[sizes, 1]} count={COUNT} />
+          <bufferAttribute attach="attributes-aBrightness" args={[brightnessInit, 1]} count={COUNT} />
+        </bufferGeometry>
+      </points>
 
-      {/* Emergent theory label */}
       {progress > 0.3 && (
-        <Html position={[center.x, center.y - 2.5, center.z]} center>
+        <Html position={[center.x, center.y - 2.8, center.z]} center>
           <div className="text-center pointer-events-none select-none animate-pulse">
             <div
               className="text-sm font-bold px-4 py-2 rounded-lg bg-black/80 border border-white/20 backdrop-blur-sm"
               style={{
-                color: `#${blendedColor.getHexString()}`,
-                textShadow: `0 0 15px #${blendedColor.getHexString()}80`,
-                boxShadow: `0 0 20px #${blendedColor.getHexString()}20`,
+                color: "#ffaa00",
+                textShadow: "0 0 15px #ffaa0080",
+                boxShadow: "0 0 20px #ffaa0020",
               }}
             >
-              ✨ Emergent: {emergentName || "New Framework"}
+              ✨ EMERGENT THEORY: {emergentName || "New Framework"}
             </div>
             <div className="text-[9px] text-white/30 mt-1 font-mono">
-              {COUNT} hybrid particles · blended spectrum
+              {COUNT} particles · collision energy
             </div>
           </div>
         </Html>
       )}
-
-      {/* Glowing core for emergent cluster */}
-      <mesh position={center}>
-        <sphereGeometry args={[0.12, 32, 32]} />
-        <meshBasicMaterial
-          color={blendedColor}
-          transparent
-          opacity={Math.min(progress, 0.7)}
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
     </group>
   );
 }
