@@ -1,14 +1,14 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Stars, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { CollisionTheory } from "@/data/collision-theories";
 import ParticleSwarm from "./collision-3d/ParticleSwarm";
-import { CentralFlash, EnergyRipples } from "./collision-3d/CollisionFX";
+import { CentralFlash, EnergyRipples, ImpactFlash, ShockwaveRing, CosmicDust } from "./collision-3d/CollisionFX";
 import EmergentCloud from "./collision-3d/EmergentCloud";
 import HUD from "./collision-3d/HUD";
 
-type Phase = "idle" | "beam" | "collide" | "emerge";
+export type Phase = "idle" | "windup" | "beam" | "collide" | "explosion" | "reform" | "emerge";
 
 interface TheoryParticles3DProps {
   theoryA?: CollisionTheory;
@@ -29,7 +29,6 @@ function CameraShake({ intensity }: { intensity: number }) {
       camera.position.lerp(basePos.current, 0.12);
       return;
     }
-
     const t = clock.getElapsedTime();
     const shake = intensity * 0.1;
     camera.position.set(
@@ -94,6 +93,19 @@ function NebulaBackground() {
   );
 }
 
+// Phase durations
+const DURATIONS: Record<Phase, number> = {
+  idle: 0,
+  windup: 1.0,
+  beam: 1.5,
+  collide: 0.8,
+  explosion: 1.0,
+  reform: 2.0,
+  emerge: 3.0,
+};
+
+const PHASE_ORDER: Phase[] = ["windup", "beam", "collide", "explosion", "reform", "emerge"];
+
 function Scene({ theoryA, theoryB, isColliding, hasResult, emergentName, onPhaseChange }: TheoryParticles3DProps & { onPhaseChange: (phase: Phase, progress: number) => void }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [phaseProgress, setPhaseProgress] = useState(0);
@@ -102,7 +114,7 @@ function Scene({ theoryA, theoryB, isColliding, hasResult, emergentName, onPhase
 
   useEffect(() => {
     if (isColliding && !prevCollidingRef.current) {
-      setPhase("beam");
+      setPhase("windup");
       phaseStartRef.current = 0;
       setPhaseProgress(0);
     }
@@ -135,35 +147,34 @@ function Scene({ theoryA, theoryB, isColliding, hasResult, emergentName, onPhase
     if (phaseStartRef.current === 0) phaseStartRef.current = clock.getElapsedTime();
     const elapsed = clock.getElapsedTime() - phaseStartRef.current;
 
-    const durations: Record<Phase, number> = {
-      idle: 0,
-      beam: 1.8,
-      collide: 1.5,
-      emerge: 3.0,
-    };
-
-    const duration = durations[phase];
+    const duration = DURATIONS[phase];
     const nextProgress = Math.min(elapsed / duration, 1);
     setPhaseProgress((prev) => (Math.abs(prev - nextProgress) > 0.01 ? nextProgress : prev));
 
     if (elapsed >= duration) {
-      const next = phase === "beam" ? "collide" : phase === "collide" ? "emerge" : null;
-      if (next) {
-        setPhase(next);
+      const idx = PHASE_ORDER.indexOf(phase);
+      if (idx >= 0 && idx < PHASE_ORDER.length - 1) {
+        setPhase(PHASE_ORDER[idx + 1]);
         phaseStartRef.current = clock.getElapsedTime();
         setPhaseProgress(0);
       }
     }
   });
 
-  const shakeIntensity = phase === "collide" ? phaseProgress * 0.3 : 0;
+  const shakeIntensity = phase === "collide" ? phaseProgress * 0.4
+    : phase === "explosion" ? 0.3 * (1 - phaseProgress)
+    : 0;
+
   const showSwarms = phase !== "emerge" || phaseProgress < 0.5;
+  const showImpactFlash = phase === "explosion" && phaseProgress < 0.3;
+  const showShockwave = phase === "explosion" && phaseProgress < 0.5;
 
   return (
     <>
-      <ambientLight intensity={0.2} />
-      <Stars radius={70} depth={50} count={900} factor={2.2} saturation={0.15} fade speed={0.25} />
+      <ambientLight intensity={0.1} />
+      <Stars radius={70} depth={50} count={600} factor={2.2} saturation={0.15} fade speed={0.25} />
       <NebulaBackground />
+      <CosmicDust />
       <OrbitControls enablePan={false} enableZoom minDistance={4} maxDistance={14} />
       <CameraShake intensity={shakeIntensity} />
 
@@ -176,8 +187,10 @@ function Scene({ theoryA, theoryB, isColliding, hasResult, emergentName, onPhase
       )}
 
       {phase === "collide" && <CentralFlash progress={phaseProgress} center={COLLISION_CENTER} />}
+      {showImpactFlash && <ImpactFlash progress={phaseProgress / 0.3} center={COLLISION_CENTER} />}
+      {showShockwave && <ShockwaveRing progress={phaseProgress / 0.5} center={COLLISION_CENTER} />}
 
-      {phase === "emerge" && (
+      {(phase === "reform" || phase === "emerge") && (
         <EnergyRipples center={COLLISION_CENTER} intensity={1} />
       )}
 
@@ -192,19 +205,21 @@ export default function TheoryParticles3D(props: TheoryParticles3DProps) {
   const [hudPhase, setHudPhase] = useState<Phase>("idle");
   const [hudProgress, setHudProgress] = useState(0);
 
+  const handlePhaseChange = useCallback((phase: Phase, progress: number) => {
+    setHudPhase(phase);
+    setHudProgress(progress);
+  }, []);
+
   return (
     <div className="w-full h-full min-h-[300px] relative bg-black">
       <HUD theoryA={props.theoryA} theoryB={props.theoryB} phase={hudPhase} phaseProgress={hudProgress} />
       <Canvas
         dpr={[1, 1.25]}
         camera={{ position: [0, 1.2, 7.4], fov: 52 }}
-        style={{ background: "transparent" }}
-        gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
+        style={{ background: "#000000" }}
+        gl={{ alpha: false, antialias: true, powerPreference: "high-performance" }}
       >
-        <Scene {...props} onPhaseChange={(phase, progress) => {
-          setHudPhase(phase);
-          setHudProgress(progress);
-        }} />
+        <Scene {...props} onPhaseChange={handlePhaseChange} />
       </Canvas>
     </div>
   );
