@@ -153,11 +153,19 @@ export default function ParticleSwarm({
           z = z + (collisionPoint.z - z) * individualT;
         }
       } else if (phase === "collide") {
-        // Particles converge smoothly to center for merging
+        // Spiral inward vortex merging
         const converge = phaseProgress;
-        x = x * (1 - converge) + collisionPoint.x * converge;
-        y = y * (1 - converge) + collisionPoint.y * converge;
-        z = z * (1 - converge) + collisionPoint.z * converge;
+        const eased = converge * converge * (3 - 2 * converge); // smoothstep
+        const dx = x - collisionPoint.x;
+        const dy = y - collisionPoint.y;
+        const dz = z - collisionPoint.z;
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        const angle = Math.atan2(dz, dx);
+        const spiralAngle = angle + eased * Math.PI * 3.5 + i * 0.02;
+        const shrinkRadius = dist * (1 - eased);
+        x = collisionPoint.x + Math.cos(spiralAngle) * shrinkRadius;
+        y = collisionPoint.y + dy * (1 - eased) + Math.sin(t * 4 + i) * 0.05 * (1 - eased);
+        z = collisionPoint.z + Math.sin(spiralAngle) * shrinkRadius;
       } else if (phase === "emerge") {
         const fadeOut = Math.min(phaseProgress * 2, 1);
         const shrink = 1 - fadeOut;
