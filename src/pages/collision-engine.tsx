@@ -231,8 +231,6 @@ export default function CollisionEnginePage() {
   const [currentResult, setCurrentResult] = useState<CollisionResult | null>(null);
   const [history, setHistory] = useState<CollisionResult[]>([]);
   const [viewingResult, setViewingResult] = useState<CollisionResult | null>(null);
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem("zh_claude_api_key") ?? "");
-  const [apiKeyOpen, setApiKeyOpen] = useState(false);
   const [error, setError] = useState("");
   const resultRef = useRef<HTMLDivElement>(null);
 
