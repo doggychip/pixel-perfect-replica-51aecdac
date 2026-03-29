@@ -272,10 +272,6 @@ export default function CollisionEnginePage() {
 
   const handleCollide = useCallback(async () => {
     if (selectedTheories.length !== 2) return;
-    if (!apiKey) {
-      setApiKeyOpen(true);
-      return;
-    }
 
     const [theoryA, theoryB] = selectedTheories;
     const mode = COLLISION_MODES.find(m => m.key === collisionMode)!;
@@ -285,59 +281,16 @@ export default function CollisionEnginePage() {
     setError("");
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
+      const { data: parsed, error: fnError } = await supabase.functions.invoke("collide-theories", {
+        body: {
+          theoryA: { name: theoryA.name, domain: theoryA.domain, core: theoryA.core, factors: theoryA.factors },
+          theoryB: { name: theoryB.name, domain: theoryB.domain, core: theoryB.core, factors: theoryB.factors },
+          collisionMode: { label: mode.label, labelCn: mode.labelCn, desc: mode.desc },
         },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1200,
-          messages: [{
-            role: "user",
-            content: `You are a cross-disciplinary synthesis engine. Given two theories from different domains, find deep structural connections and generate a novel framework.
-
-THEORY A: ${theoryA.name} (${theoryA.domain})
-Core: ${theoryA.core}
-Key factors: ${theoryA.factors.join(", ")}
-
-THEORY B: ${theoryB.name} (${theoryB.domain})
-Core: ${theoryB.core}
-Key factors: ${theoryB.factors.join(", ")}
-
-COLLISION MODE: ${mode.label} (${mode.labelCn}) — ${mode.desc}
-
-Respond ONLY in JSON (no markdown, no backticks):
-{
-  "framework_name": "A creative name for the new framework (English + Chinese)",
-  "core_insight": "2-3 sentences describing the novel insight from this collision",
-  "structural_similarities": ["list of 3-4 deep structural parallels found"],
-  "novel_connections": ["list of 2-3 genuinely surprising cross-domain links"],
-  "practical_applications": ["list of 2-3 concrete business/product applications"],
-  "quality_score": 7,
-  "reasoning": "1 sentence on why this collision is or isn't productive"
-}`,
-          }],
-        }),
       });
 
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({ error: { message: `HTTP ${res.status}` } }));
-        throw new Error(errBody.error?.message ?? `API error: ${res.status}`);
-      }
-
-      const data = await res.json();
-      const text = data.content?.[0]?.text ?? "";
-
-      // Parse JSON from response (handle potential markdown wrapping)
-      let jsonStr = text.trim();
-      if (jsonStr.startsWith("```")) {
-        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-      }
-      const parsed = JSON.parse(jsonStr);
+      if (fnError) throw new Error(fnError.message ?? "Edge function error");
+      if (parsed?.error) throw new Error(parsed.error);
 
       const result: CollisionResult = {
         id: crypto.randomUUID(),
