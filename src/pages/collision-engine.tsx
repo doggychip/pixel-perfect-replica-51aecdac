@@ -1,5 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,8 +8,6 @@ import {
   Zap, Shuffle, ChevronRight, Star, Clock, Link2, Atom,
   Sparkles, ArrowRight, X, History, AlertTriangle,
 } from "lucide-react";
-import TheoryParticles3D from "@/components/TheoryParticles3D";
-import TheoryParticlePreview from "@/components/TheoryParticlePreview";
 import {
   THEORIES, DOMAINS, COLLISION_MODES, DOMAIN_COLORS, DOMAIN_CLASSES,
   getTheoriesByDomain,
@@ -234,7 +231,8 @@ export default function CollisionEnginePage() {
   const [currentResult, setCurrentResult] = useState<CollisionResult | null>(null);
   const [history, setHistory] = useState<CollisionResult[]>([]);
   const [viewingResult, setViewingResult] = useState<CollisionResult | null>(null);
-  const [apiKey] = useState("lovable-ai"); // Using Lovable AI - no key needed
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem("zh_claude_api_key") ?? "");
+  const [apiKeyOpen, setApiKeyOpen] = useState(false);
   const [error, setError] = useState("");
   const resultRef = useRef<HTMLDivElement>(null);
 
@@ -248,6 +246,10 @@ export default function CollisionEnginePage() {
     [activeDomain],
   );
 
+  // Save API key
+  useEffect(() => {
+    if (apiKey) localStorage.setItem("zh_claude_api_key", apiKey);
+  }, [apiKey]);
 
   const handleSelect = useCallback((id: number) => {
     setSelectedIds(prev => {
@@ -276,6 +278,10 @@ export default function CollisionEnginePage() {
 
   const handleCollide = useCallback(async () => {
     if (selectedTheories.length !== 2) return;
+    if (!apiKey) {
+      setApiKeyOpen(true);
+      return;
+    }
 
     const [theoryA, theoryB] = selectedTheories;
     const mode = COLLISION_MODES.find(m => m.key === collisionMode)!;
@@ -285,16 +291,59 @@ export default function CollisionEnginePage() {
     setError("");
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke("collide-theories", {
-        body: {
-          theoryA,
-          theoryB,
-          collisionMode: { label: mode.label, labelCn: mode.labelCn, desc: mode.desc },
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
         },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1200,
+          messages: [{
+            role: "user",
+            content: `You are a cross-disciplinary synthesis engine. Given two theories from different domains, find deep structural connections and generate a novel framework.
+
+THEORY A: ${theoryA.name} (${theoryA.domain})
+Core: ${theoryA.core}
+Key factors: ${theoryA.factors.join(", ")}
+
+THEORY B: ${theoryB.name} (${theoryB.domain})
+Core: ${theoryB.core}
+Key factors: ${theoryB.factors.join(", ")}
+
+COLLISION MODE: ${mode.label} (${mode.labelCn}) — ${mode.desc}
+
+Respond ONLY in JSON (no markdown, no backticks):
+{
+  "framework_name": "A creative name for the new framework (English + Chinese)",
+  "core_insight": "2-3 sentences describing the novel insight from this collision",
+  "structural_similarities": ["list of 3-4 deep structural parallels found"],
+  "novel_connections": ["list of 2-3 genuinely surprising cross-domain links"],
+  "practical_applications": ["list of 2-3 concrete business/product applications"],
+  "quality_score": 7,
+  "reasoning": "1 sentence on why this collision is or isn't productive"
+}`,
+          }],
+        }),
       });
 
-      if (fnError) throw new Error(fnError.message ?? "Edge function error");
-      if (data?.error) throw new Error(data.error);
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ error: { message: `HTTP ${res.status}` } }));
+        throw new Error(errBody.error?.message ?? `API error: ${res.status}`);
+      }
+
+      const data = await res.json();
+      const text = data.content?.[0]?.text ?? "";
+
+      // Parse JSON from response (handle potential markdown wrapping)
+      let jsonStr = text.trim();
+      if (jsonStr.startsWith("```")) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      }
+      const parsed = JSON.parse(jsonStr);
 
       const result: CollisionResult = {
         id: crypto.randomUUID(),
@@ -302,21 +351,22 @@ export default function CollisionEnginePage() {
         theoryB,
         mode: collisionMode,
         modeLabel: mode.label,
-        ...data,
-        quality_score: Math.min(10, Math.max(1, Math.round(data.quality_score ?? 5))),
+        ...parsed,
+        quality_score: Math.min(10, Math.max(1, Math.round(parsed.quality_score ?? 5))),
         timestamp: Date.now(),
       };
 
       setCurrentResult(result);
       setHistory(prev => [result, ...prev]);
 
+      // Scroll to result
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     } catch (err: any) {
       setError(err.message ?? "Collision failed");
     } finally {
       setIsColliding(false);
     }
-  }, [selectedTheories, collisionMode]);
+  }, [selectedTheories, collisionMode, apiKey]);
 
   const handleChainCollide = useCallback((result: CollisionResult) => {
     // Create a virtual theory from the collision result
@@ -353,10 +403,16 @@ export default function CollisionEnginePage() {
             Select 2 theories from different domains, pick a collision mode, and discover novel frameworks
           </p>
         </div>
-        <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-400/30 bg-emerald-400/10">
-          <Sparkles className="w-3 h-3 mr-1" />
-          Powered by Lovable AI
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs h-7"
+            onClick={() => setApiKeyOpen(true)}
+          >
+            {apiKey ? "API Key Set" : "Set API Key"}
+          </Button>
+        </div>
       </div>
 
       {/* Three-panel layout */}
@@ -442,28 +498,16 @@ export default function CollisionEnginePage() {
               <CardContent className="p-4">
                 {selectedTheories[0] ? (
                   <>
-                    <div className="h-[140px] -mx-2 -mt-2 mb-2 rounded-md overflow-hidden bg-black/30">
-                      <TheoryParticlePreview theory={selectedTheories[0]} side="left" />
-                    </div>
                     <Badge variant="outline" className={`text-[10px] mb-2 ${DOMAIN_CLASSES[selectedTheories[0].domain as DomainKey].text} ${DOMAIN_CLASSES[selectedTheories[0].domain as DomainKey].border} ${DOMAIN_CLASSES[selectedTheories[0].domain as DomainKey].bg}`}>
                       {selectedTheories[0].domain}
                     </Badge>
                     <h3 className="text-sm font-semibold mb-0.5">{selectedTheories[0].name}</h3>
                     <p className="text-[10px] text-muted-foreground mb-0.5">{selectedTheories[0].nameCn}</p>
-                    <p className="text-xs text-muted-foreground/70 leading-relaxed line-clamp-2">{selectedTheories[0].core}</p>
-                    <div className="flex items-center gap-1 mt-1.5 text-[9px] text-blue-400/70">
-                      <span>{Math.min(400, 80 + selectedTheories[0].factors.length * 60)} particles</span>
-                      <span className="text-muted-foreground/30">·</span>
-                      <span>{selectedTheories[0].factors.length} factors</span>
-                    </div>
+                    <p className="text-xs text-muted-foreground/70 leading-relaxed">{selectedTheories[0].core}</p>
                   </>
                 ) : (
-                  <div className="text-center py-8">
-                    <div className="w-10 h-10 rounded-full border border-dashed border-blue-500/30 mx-auto mb-2 flex items-center justify-center">
-                      <div className="w-2 h-2 rounded-full bg-blue-500/40 animate-pulse" />
-                    </div>
+                  <div className="text-center py-4">
                     <p className="text-xs text-muted-foreground">Select Theory A</p>
-                    <p className="text-[9px] text-blue-400/40 mt-0.5">Blue particles</p>
                   </div>
                 )}
               </CardContent>
@@ -503,28 +547,16 @@ export default function CollisionEnginePage() {
               <CardContent className="p-4">
                 {selectedTheories[1] ? (
                   <>
-                    <div className="h-[140px] -mx-2 -mt-2 mb-2 rounded-md overflow-hidden bg-black/30">
-                      <TheoryParticlePreview theory={selectedTheories[1]} side="right" />
-                    </div>
                     <Badge variant="outline" className={`text-[10px] mb-2 ${DOMAIN_CLASSES[selectedTheories[1].domain as DomainKey].text} ${DOMAIN_CLASSES[selectedTheories[1].domain as DomainKey].border} ${DOMAIN_CLASSES[selectedTheories[1].domain as DomainKey].bg}`}>
                       {selectedTheories[1].domain}
                     </Badge>
                     <h3 className="text-sm font-semibold mb-0.5">{selectedTheories[1].name}</h3>
                     <p className="text-[10px] text-muted-foreground mb-0.5">{selectedTheories[1].nameCn}</p>
-                    <p className="text-xs text-muted-foreground/70 leading-relaxed line-clamp-2">{selectedTheories[1].core}</p>
-                    <div className="flex items-center gap-1 mt-1.5 text-[9px] text-red-400/70">
-                      <span>{Math.min(400, 80 + selectedTheories[1].factors.length * 60)} particles</span>
-                      <span className="text-muted-foreground/30">·</span>
-                      <span>{selectedTheories[1].factors.length} factors</span>
-                    </div>
+                    <p className="text-xs text-muted-foreground/70 leading-relaxed">{selectedTheories[1].core}</p>
                   </>
                 ) : (
-                  <div className="text-center py-8">
-                    <div className="w-10 h-10 rounded-full border border-dashed border-red-500/30 mx-auto mb-2 flex items-center justify-center">
-                      <div className="w-2 h-2 rounded-full bg-red-500/40 animate-pulse" />
-                    </div>
+                  <div className="text-center py-4">
                     <p className="text-xs text-muted-foreground">Select Theory B</p>
-                    <p className="text-[9px] text-red-400/40 mt-0.5">Red particles</p>
                   </div>
                 )}
               </CardContent>
@@ -542,27 +574,33 @@ export default function CollisionEnginePage() {
             </div>
           )}
 
-          {/* 3D Visualization — always visible */}
-          <div className="flex-1 min-h-[300px] rounded-lg border border-border/30 overflow-hidden bg-black/20">
-            <TheoryParticles3D
-              theoryA={selectedTheories[0]}
-              theoryB={selectedTheories[1]}
-              isColliding={isColliding}
-              hasResult={!!currentResult}
-              emergentName={currentResult?.framework_name}
-            />
-          </div>
+          {/* Collision animation */}
+          {isColliding && (
+            <CollisionAnimation colorA={colorA} colorB={colorB} />
+          )}
 
           {/* Result */}
           <div ref={resultRef}>
             {currentResult && !isColliding && (
-              <Card className="bg-card/50 border-card-border mt-4">
+              <Card className="bg-card/50 border-card-border">
                 <CardContent className="p-5">
                   <ResultCard result={currentResult} />
                 </CardContent>
               </Card>
             )}
           </div>
+
+          {/* Empty state */}
+          {!currentResult && !isColliding && !error && (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center py-12">
+                <Atom className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground/40">
+                  Select two theories and collide them to discover novel frameworks
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ─── RIGHT: History ─── */}
@@ -615,6 +653,33 @@ export default function CollisionEnginePage() {
         </DialogContent>
       </Dialog>
 
+      {/* API Key dialog */}
+      <Dialog open={apiKeyOpen} onOpenChange={setApiKeyOpen}>
+        <DialogContent className="bg-card border-card-border max-w-md">
+          <DialogHeader>
+            <DialogTitle>Claude API Key</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <p className="text-xs text-muted-foreground">
+              Enter your Anthropic API key to power theory collisions. The key is stored locally in your browser only.
+            </p>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              placeholder="sk-ant-..."
+              className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <Button
+              className="w-full bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-semibold"
+              onClick={() => setApiKeyOpen(false)}
+              disabled={!apiKey}
+            >
+              Save Key
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

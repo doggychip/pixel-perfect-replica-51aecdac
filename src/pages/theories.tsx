@@ -4,14 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Atom, ChevronRight, Zap, BookOpen, Eye, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Search, Atom, ChevronRight, Zap, BookOpen } from "lucide-react";
 import theoriesData from "@/data/theories.json";
 import skeletonsData from "@/data/skeletons.json";
 import historicalData from "@/data/historical.json";
-import { THEORIES as COLLISION_THEORIES } from "@/data/collision-theories";
-import type { CollisionTheory } from "@/data/collision-theories";
-import TheoryCompare3D from "@/components/TheoryCompare3D";
 
 type Theory = {
   id: string;
@@ -200,12 +196,7 @@ function TheoryDetailDialog({ theory, open, onClose }: { theory: Theory | null; 
   );
 }
 
-function TheoriesGrid({ search, onCompare, isComparable, isSelected }: {
-  search: string;
-  onCompare: (theory: Theory) => void;
-  isComparable: (theory: Theory) => boolean;
-  isSelected: (theory: Theory) => boolean;
-}) {
+function TheoriesGrid({ search }: { search: string }) {
   const theoryList = useMemo(() => Object.values(theories), []);
 
   // Group by domain
@@ -250,7 +241,7 @@ function TheoriesGrid({ search, onCompare, isComparable, isSelected }: {
             {domainTheories.map(t => (
               <Card
                 key={t.id}
-                className={`bg-card/50 border-card-border cursor-pointer hover:bg-accent/20 transition-all hover:shadow-md group ${isSelected(t) ? "ring-1 ring-cyan-400/50" : ""}`}
+                className="bg-card/50 border-card-border cursor-pointer hover:bg-accent/20 transition-all hover:shadow-md group"
                 onClick={() => setSelected(t)}
               >
                 <CardContent className="p-4">
@@ -258,18 +249,7 @@ function TheoriesGrid({ search, onCompare, isComparable, isSelected }: {
                     <h3 className="font-semibold text-sm leading-tight group-hover:text-cyan-400 transition-colors">
                       {t.name}
                     </h3>
-                    <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
-                      {isComparable(t) && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onCompare(t); }}
-                          className={`p-1 rounded transition-colors ${isSelected(t) ? "text-cyan-400 bg-cyan-400/10" : "text-muted-foreground/40 hover:text-muted-foreground"}`}
-                          title="Compare in 3D"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
+                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
                   </div>
                   {t.equation && (
                     <code className="text-[11px] text-muted-foreground font-mono block mb-2 truncate">
@@ -377,30 +357,8 @@ function HistoricalView() {
 
 export default function TheoriesPage() {
   const [search, setSearch] = useState("");
-  const [compareIds, setCompareIds] = useState<number[]>([]);
-  const [activeFactor, setActiveFactor] = useState<string | null>(null);
   const totalTheories = Object.keys(theories).length;
   const domains = new Set(Object.values(theories).map(t => t.domain));
-
-  const compareA = useMemo(() => COLLISION_THEORIES.find(t => t.id === compareIds[0]) ?? null, [compareIds]);
-  const compareB = useMemo(() => COLLISION_THEORIES.find(t => t.id === compareIds[1]) ?? null, [compareIds]);
-
-  const handleCompareToggle = (theory: Theory) => {
-    // Find matching collision theory by name
-    const ct = COLLISION_THEORIES.find(t => t.name === theory.name);
-    if (!ct) return;
-    setCompareIds(prev => {
-      if (prev.includes(ct.id)) return prev.filter(x => x !== ct.id);
-      if (prev.length >= 2) return [prev[1], ct.id];
-      return [...prev, ct.id];
-    });
-  };
-
-  const isComparable = (theory: Theory) => COLLISION_THEORIES.some(t => t.name === theory.name);
-  const isSelected = (theory: Theory) => {
-    const ct = COLLISION_THEORIES.find(t => t.name === theory.name);
-    return ct ? compareIds.includes(ct.id) : false;
-  };
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl space-y-6">
@@ -411,58 +369,6 @@ export default function TheoriesPage() {
           {totalTheories} mathematical theories across {domains.size} domains
         </p>
       </div>
-
-      {/* 3D Comparison Panel */}
-      {compareIds.length > 0 && (
-        <Card className="bg-black/30 border-border/50 overflow-hidden">
-          <CardContent className="p-0">
-            <div className="flex items-center justify-between px-4 py-2 border-b border-border/30">
-              <div className="flex items-center gap-3">
-                <Eye className="w-4 h-4 text-muted-foreground" />
-                <span className="text-xs font-semibold text-foreground/80">3D Particle Comparison</span>
-                {compareA && (
-                  <Badge variant="outline" className="text-[10px] text-blue-400 border-blue-400/30 bg-blue-400/10 gap-1">
-                    <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
-                    {compareA.name} ({compareA.factors.length} factors · {Math.min(400, 80 + compareA.factors.length * 60)}p)
-                    <button onClick={() => setCompareIds(prev => prev.filter(x => x !== compareA.id))} className="ml-1 hover:text-white">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </Badge>
-                )}
-                {compareB && (
-                  <Badge variant="outline" className="text-[10px] text-red-400 border-red-400/30 bg-red-400/10 gap-1">
-                    <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
-                    {compareB.name} ({compareB.factors.length} factors · {Math.min(400, 80 + compareB.factors.length * 60)}p)
-                    <button onClick={() => setCompareIds(prev => prev.filter(x => x !== compareB.id))} className="ml-1 hover:text-white">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </Badge>
-                )}
-              </div>
-              <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setCompareIds([])}>
-                Clear
-              </Button>
-            </div>
-            <div className="h-[400px]">
-              <TheoryCompare3D
-                theoryA={compareA}
-                theoryB={compareB}
-                activeFactor={activeFactor}
-                onFactorHover={setActiveFactor}
-              />
-            </div>
-            {/* Motion legend */}
-            <div className="px-4 py-2 border-t border-border/30 flex flex-wrap gap-3">
-              {(["orbital", "wave", "chaotic", "pulsing", "spiral", "lattice"] as const).map(m => (
-                <div key={m} className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
-                  <span className="w-2 h-2 rounded-full" style={{ background: { orbital: "#60a5fa", wave: "#34d399", chaotic: "#f87171", pulsing: "#fbbf24", spiral: "#a78bfa", lattice: "#f472b6" }[m] }} />
-                  {m.charAt(0).toUpperCase() + m.slice(1)}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <Tabs defaultValue="theories">
         <TabsList>
@@ -481,7 +387,7 @@ export default function TheoriesPage() {
         </TabsList>
 
         <TabsContent value="theories">
-          {/* Search + compare hint */}
+          {/* Search */}
           <div className="relative my-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
@@ -492,12 +398,7 @@ export default function TheoriesPage() {
               className="w-full bg-background border border-input rounded-lg pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
-          {compareIds.length < 2 && (
-            <p className="text-[10px] text-muted-foreground/60 mb-3">
-              💡 Click the <Eye className="w-3 h-3 inline" /> icon on theory cards to compare them as 3D particle clouds (blue vs red)
-            </p>
-          )}
-          <TheoriesGrid search={search} onCompare={handleCompareToggle} isComparable={isComparable} isSelected={isSelected} />
+          <TheoriesGrid search={search} />
         </TabsContent>
 
         <TabsContent value="skeletons">
