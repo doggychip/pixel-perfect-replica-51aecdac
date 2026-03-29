@@ -618,12 +618,16 @@ export default function OraclePage() {
     count: number;
   }>({
     queryKey: [oracleUrl(scanEndpoint)],
-    enabled: isMarketTab,
+    enabled: isMarketTab && !!scanEndpoint,
     refetchInterval: isMarketTab ? 60000 : false,
+    staleTime: 30000,
+    retry: 2,
   });
 
   const { data: statsData } = useQuery<any>({
     queryKey: [oracleUrl("/api/oracle/theories/stats")],
+    staleTime: 60000,
+    retry: 2,
   });
 
   const results = scanData?.results ?? [];
