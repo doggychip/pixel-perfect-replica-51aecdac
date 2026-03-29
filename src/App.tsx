@@ -15,6 +15,7 @@ import SettingsPage from "@/pages/settings";
 import TheoriesPage from "@/pages/theories";
 import CollisionsPage from "@/pages/collisions";
 import CollisionEnginePage from "@/pages/collision-engine";
+import OraclePage from "@/pages/oracle";
 import { ThemeProvider } from "@/hooks/use-theme";
 
 function AppRouter() {
