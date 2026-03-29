@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import {
   Brain, LayoutDashboard, Bot, Lightbulb, Package, BarChart3, Settings,
-  ChevronLeft, ChevronRight, Sun, Moon, Menu, Atom, Zap, Sparkles,
+  ChevronLeft, ChevronRight, Sun, Moon, Menu, Atom, Zap, Sparkles, Eye,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useTheme } from "@/hooks/use-theme";
