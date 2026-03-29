@@ -351,7 +351,6 @@ function AlertsPanel() {
     staleTime: 15000,
     retry: 2,
   });
-  });
 
   const alerts = data?.alerts ?? [];
 
