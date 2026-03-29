@@ -282,6 +282,8 @@ function DetailPanel({ instrument }: { instrument: string }) {
   const { data, isLoading } = useQuery<CryptoDiagnosis>({
     queryKey: [oracleUrl(`/api/oracle/crypto/${instrument}`)],
     enabled: !!instrument,
+    staleTime: 30000,
+    retry: 2,
   });
 
   if (isLoading) return <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-20 w-full" />)}</div>;
