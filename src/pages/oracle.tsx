@@ -397,7 +397,9 @@ function CrossDomainPanel() {
     snapshot_count: number;
   }>({
     queryKey: [oracleUrl("/api/oracle/cross-domain")],
-    enabled: false, // manual trigger
+    enabled: false,
+    staleTime: 0,
+    retry: 2,
   });
 
   const correlations = data?.correlations ?? [];
