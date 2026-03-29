@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,8 @@ import {
   Zap, Shuffle, ChevronRight, Star, Clock, Link2, Atom,
   Sparkles, ArrowRight, X, History, AlertTriangle,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import TheoryParticles3D from "@/components/TheoryParticles3D";
+import TheoryParticlePreview from "@/components/TheoryParticlePreview";
 import {
   THEORIES, DOMAINS, COLLISION_MODES, DOMAIN_COLORS, DOMAIN_CLASSES,
   getTheoriesByDomain,
@@ -232,6 +234,7 @@ export default function CollisionEnginePage() {
   const [currentResult, setCurrentResult] = useState<CollisionResult | null>(null);
   const [history, setHistory] = useState<CollisionResult[]>([]);
   const [viewingResult, setViewingResult] = useState<CollisionResult | null>(null);
+  const [apiKey] = useState("lovable-ai"); // Using Lovable AI - no key needed
   const [error, setError] = useState("");
   const resultRef = useRef<HTMLDivElement>(null);
 
@@ -244,7 +247,6 @@ export default function CollisionEnginePage() {
     () => getTheoriesByDomain(activeDomain),
     [activeDomain],
   );
-
 
 
   const handleSelect = useCallback((id: number) => {
@@ -291,7 +293,7 @@ export default function CollisionEnginePage() {
         },
       });
 
-      if (fnError) throw new Error(fnError.message ?? "Collision failed");
+      if (fnError) throw new Error(fnError.message ?? "Edge function error");
       if (data?.error) throw new Error(data.error);
 
       const result: CollisionResult = {
@@ -351,7 +353,10 @@ export default function CollisionEnginePage() {
             Select 2 theories from different domains, pick a collision mode, and discover novel frameworks
           </p>
         </div>
-        <div className="flex items-center gap-2" />
+        <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-400/30 bg-emerald-400/10">
+          <Sparkles className="w-3 h-3 mr-1" />
+          Powered by Lovable AI
+        </Badge>
       </div>
 
       {/* Three-panel layout */}
@@ -437,16 +442,28 @@ export default function CollisionEnginePage() {
               <CardContent className="p-4">
                 {selectedTheories[0] ? (
                   <>
+                    <div className="h-[140px] -mx-2 -mt-2 mb-2 rounded-md overflow-hidden bg-black/30">
+                      <TheoryParticlePreview theory={selectedTheories[0]} side="left" />
+                    </div>
                     <Badge variant="outline" className={`text-[10px] mb-2 ${DOMAIN_CLASSES[selectedTheories[0].domain as DomainKey].text} ${DOMAIN_CLASSES[selectedTheories[0].domain as DomainKey].border} ${DOMAIN_CLASSES[selectedTheories[0].domain as DomainKey].bg}`}>
                       {selectedTheories[0].domain}
                     </Badge>
                     <h3 className="text-sm font-semibold mb-0.5">{selectedTheories[0].name}</h3>
                     <p className="text-[10px] text-muted-foreground mb-0.5">{selectedTheories[0].nameCn}</p>
-                    <p className="text-xs text-muted-foreground/70 leading-relaxed">{selectedTheories[0].core}</p>
+                    <p className="text-xs text-muted-foreground/70 leading-relaxed line-clamp-2">{selectedTheories[0].core}</p>
+                    <div className="flex items-center gap-1 mt-1.5 text-[9px] text-blue-400/70">
+                      <span>{Math.min(400, 80 + selectedTheories[0].factors.length * 60)} particles</span>
+                      <span className="text-muted-foreground/30">·</span>
+                      <span>{selectedTheories[0].factors.length} factors</span>
+                    </div>
                   </>
                 ) : (
-                  <div className="text-center py-4">
+                  <div className="text-center py-8">
+                    <div className="w-10 h-10 rounded-full border border-dashed border-blue-500/30 mx-auto mb-2 flex items-center justify-center">
+                      <div className="w-2 h-2 rounded-full bg-blue-500/40 animate-pulse" />
+                    </div>
                     <p className="text-xs text-muted-foreground">Select Theory A</p>
+                    <p className="text-[9px] text-blue-400/40 mt-0.5">Blue particles</p>
                   </div>
                 )}
               </CardContent>
@@ -486,16 +503,28 @@ export default function CollisionEnginePage() {
               <CardContent className="p-4">
                 {selectedTheories[1] ? (
                   <>
+                    <div className="h-[140px] -mx-2 -mt-2 mb-2 rounded-md overflow-hidden bg-black/30">
+                      <TheoryParticlePreview theory={selectedTheories[1]} side="right" />
+                    </div>
                     <Badge variant="outline" className={`text-[10px] mb-2 ${DOMAIN_CLASSES[selectedTheories[1].domain as DomainKey].text} ${DOMAIN_CLASSES[selectedTheories[1].domain as DomainKey].border} ${DOMAIN_CLASSES[selectedTheories[1].domain as DomainKey].bg}`}>
                       {selectedTheories[1].domain}
                     </Badge>
                     <h3 className="text-sm font-semibold mb-0.5">{selectedTheories[1].name}</h3>
                     <p className="text-[10px] text-muted-foreground mb-0.5">{selectedTheories[1].nameCn}</p>
-                    <p className="text-xs text-muted-foreground/70 leading-relaxed">{selectedTheories[1].core}</p>
+                    <p className="text-xs text-muted-foreground/70 leading-relaxed line-clamp-2">{selectedTheories[1].core}</p>
+                    <div className="flex items-center gap-1 mt-1.5 text-[9px] text-red-400/70">
+                      <span>{Math.min(400, 80 + selectedTheories[1].factors.length * 60)} particles</span>
+                      <span className="text-muted-foreground/30">·</span>
+                      <span>{selectedTheories[1].factors.length} factors</span>
+                    </div>
                   </>
                 ) : (
-                  <div className="text-center py-4">
+                  <div className="text-center py-8">
+                    <div className="w-10 h-10 rounded-full border border-dashed border-red-500/30 mx-auto mb-2 flex items-center justify-center">
+                      <div className="w-2 h-2 rounded-full bg-red-500/40 animate-pulse" />
+                    </div>
                     <p className="text-xs text-muted-foreground">Select Theory B</p>
+                    <p className="text-[9px] text-red-400/40 mt-0.5">Red particles</p>
                   </div>
                 )}
               </CardContent>
@@ -513,33 +542,27 @@ export default function CollisionEnginePage() {
             </div>
           )}
 
-          {/* Collision animation */}
-          {isColliding && (
-            <CollisionAnimation colorA={colorA} colorB={colorB} />
-          )}
+          {/* 3D Visualization — always visible */}
+          <div className="flex-1 min-h-[300px] rounded-lg border border-border/30 overflow-hidden bg-black/20">
+            <TheoryParticles3D
+              theoryA={selectedTheories[0]}
+              theoryB={selectedTheories[1]}
+              isColliding={isColliding}
+              hasResult={!!currentResult}
+              emergentName={currentResult?.framework_name}
+            />
+          </div>
 
           {/* Result */}
           <div ref={resultRef}>
             {currentResult && !isColliding && (
-              <Card className="bg-card/50 border-card-border">
+              <Card className="bg-card/50 border-card-border mt-4">
                 <CardContent className="p-5">
                   <ResultCard result={currentResult} />
                 </CardContent>
               </Card>
             )}
           </div>
-
-          {/* Empty state */}
-          {!currentResult && !isColliding && !error && (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center py-12">
-                <Atom className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground/40">
-                  Select two theories and collide them to discover novel frameworks
-                </p>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ─── RIGHT: History ─── */}
