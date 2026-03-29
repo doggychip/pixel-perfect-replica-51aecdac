@@ -282,6 +282,8 @@ function DetailPanel({ instrument }: { instrument: string }) {
   const { data, isLoading } = useQuery<CryptoDiagnosis>({
     queryKey: [oracleUrl(`/api/oracle/crypto/${instrument}`)],
     enabled: !!instrument,
+    staleTime: 30000,
+    retry: 2,
   });
 
   if (isLoading) return <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-20 w-full" />)}</div>;
@@ -346,6 +348,8 @@ function AlertsPanel() {
   const { data, isLoading } = useQuery<{ alerts: AlertItem[] }>({
     queryKey: [oracleUrl("/api/oracle/alerts")],
     refetchInterval: 30000,
+    staleTime: 15000,
+    retry: 2,
   });
 
   const alerts = data?.alerts ?? [];
@@ -393,7 +397,9 @@ function CrossDomainPanel() {
     snapshot_count: number;
   }>({
     queryKey: [oracleUrl("/api/oracle/cross-domain")],
-    enabled: false, // manual trigger
+    enabled: false,
+    staleTime: 0,
+    retry: 2,
   });
 
   const correlations = data?.correlations ?? [];
@@ -618,12 +624,16 @@ export default function OraclePage() {
     count: number;
   }>({
     queryKey: [oracleUrl(scanEndpoint)],
-    enabled: isMarketTab,
+    enabled: isMarketTab && !!scanEndpoint,
     refetchInterval: isMarketTab ? 60000 : false,
+    staleTime: 30000,
+    retry: 2,
   });
 
   const { data: statsData } = useQuery<any>({
     queryKey: [oracleUrl("/api/oracle/theories/stats")],
+    staleTime: 60000,
+    retry: 2,
   });
 
   const results = scanData?.results ?? [];
