@@ -313,7 +313,7 @@ export default function CollisionEnginePage() {
     } finally {
       setIsColliding(false);
     }
-  }, [selectedTheories, collisionMode, apiKey]);
+  }, [selectedTheories, collisionMode]);
 
   const handleChainCollide = useCallback((result: CollisionResult) => {
     // Create a virtual theory from the collision result
