@@ -4,7 +4,7 @@ import {
   ChevronLeft, ChevronRight, Sun, Moon, Menu, Atom, Zap, Sparkles,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useTheme } from "@/App";
+import { useTheme } from "@/hooks/use-theme";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
