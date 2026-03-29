@@ -348,6 +348,9 @@ function AlertsPanel() {
   const { data, isLoading } = useQuery<{ alerts: AlertItem[] }>({
     queryKey: [oracleUrl("/api/oracle/alerts")],
     refetchInterval: 30000,
+    staleTime: 15000,
+    retry: 2,
+  });
   });
 
   const alerts = data?.alerts ?? [];
