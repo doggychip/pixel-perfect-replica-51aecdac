@@ -20,6 +20,14 @@ export function pnlColor(value: number): string {
 
 export function agentTypeBadgeClass(type: string): string {
   switch (type) {
+    case "scanner":
+      return "text-cyan-400 border-cyan-400/30 bg-cyan-400/10";
+    case "trader":
+      return "text-emerald-400 border-emerald-400/30 bg-emerald-400/10";
+    case "researcher":
+      return "text-purple-400 border-purple-400/30 bg-purple-400/10";
+    case "sentinel":
+      return "text-amber-400 border-amber-400/30 bg-amber-400/10";
     case "trading":
       return "text-cyan-400 border-cyan-400/30 bg-cyan-400/10";
     case "analytics":
@@ -33,6 +41,14 @@ export function agentTypeBadgeClass(type: string): string {
 
 export function agentTypeLabel(type: string): string {
   switch (type) {
+    case "scanner":
+      return "Scanner";
+    case "trader":
+      return "Trader";
+    case "researcher":
+      return "Researcher";
+    case "sentinel":
+      return "Sentinel";
     case "trading":
       return "Trading";
     case "analytics":
@@ -40,7 +56,7 @@ export function agentTypeLabel(type: string): string {
     case "social":
       return "Social";
     default:
-      return type;
+      return type.charAt(0).toUpperCase() + type.slice(1);
   }
 }
 
