@@ -350,14 +350,10 @@ export default function CollisionEnginePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs h-7"
-            onClick={() => setApiKeyOpen(true)}
-          >
-            {apiKey ? "API Key Set" : "Set API Key"}
-          </Button>
+          <Badge variant="outline" className="text-xs text-emerald-400 border-emerald-400/30">
+            <Sparkles className="w-3 h-3 mr-1" />
+            AI Powered
+          </Badge>
         </div>
       </div>
 
