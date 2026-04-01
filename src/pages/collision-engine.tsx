@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -231,8 +232,6 @@ export default function CollisionEnginePage() {
   const [currentResult, setCurrentResult] = useState<CollisionResult | null>(null);
   const [history, setHistory] = useState<CollisionResult[]>([]);
   const [viewingResult, setViewingResult] = useState<CollisionResult | null>(null);
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem("zh_claude_api_key") ?? "");
-  const [apiKeyOpen, setApiKeyOpen] = useState(false);
   const [error, setError] = useState("");
   const resultRef = useRef<HTMLDivElement>(null);
 
@@ -246,10 +245,6 @@ export default function CollisionEnginePage() {
     [activeDomain],
   );
 
-  // Save API key
-  useEffect(() => {
-    if (apiKey) localStorage.setItem("zh_claude_api_key", apiKey);
-  }, [apiKey]);
 
   const handleSelect = useCallback((id: number) => {
     setSelectedIds(prev => {
@@ -278,10 +273,6 @@ export default function CollisionEnginePage() {
 
   const handleCollide = useCallback(async () => {
     if (selectedTheories.length !== 2) return;
-    if (!apiKey) {
-      setApiKeyOpen(true);
-      return;
-    }
 
     const [theoryA, theoryB] = selectedTheories;
     const mode = COLLISION_MODES.find(m => m.key === collisionMode)!;
@@ -291,59 +282,16 @@ export default function CollisionEnginePage() {
     setError("");
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
+      const { data: parsed, error: fnError } = await supabase.functions.invoke("collide-theories", {
+        body: {
+          theoryA,
+          theoryB,
+          collisionMode: { label: mode.label, labelCn: mode.labelCn, desc: mode.desc },
         },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1200,
-          messages: [{
-            role: "user",
-            content: `You are a cross-disciplinary synthesis engine. Given two theories from different domains, find deep structural connections and generate a novel framework.
-
-THEORY A: ${theoryA.name} (${theoryA.domain})
-Core: ${theoryA.core}
-Key factors: ${theoryA.factors.join(", ")}
-
-THEORY B: ${theoryB.name} (${theoryB.domain})
-Core: ${theoryB.core}
-Key factors: ${theoryB.factors.join(", ")}
-
-COLLISION MODE: ${mode.label} (${mode.labelCn}) — ${mode.desc}
-
-Respond ONLY in JSON (no markdown, no backticks):
-{
-  "framework_name": "A creative name for the new framework (English + Chinese)",
-  "core_insight": "2-3 sentences describing the novel insight from this collision",
-  "structural_similarities": ["list of 3-4 deep structural parallels found"],
-  "novel_connections": ["list of 2-3 genuinely surprising cross-domain links"],
-  "practical_applications": ["list of 2-3 concrete business/product applications"],
-  "quality_score": 7,
-  "reasoning": "1 sentence on why this collision is or isn't productive"
-}`,
-          }],
-        }),
       });
 
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({ error: { message: `HTTP ${res.status}` } }));
-        throw new Error(errBody.error?.message ?? `API error: ${res.status}`);
-      }
-
-      const data = await res.json();
-      const text = data.content?.[0]?.text ?? "";
-
-      // Parse JSON from response (handle potential markdown wrapping)
-      let jsonStr = text.trim();
-      if (jsonStr.startsWith("```")) {
-        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-      }
-      const parsed = JSON.parse(jsonStr);
+      if (fnError) throw new Error(fnError.message ?? "Collision failed");
+      if (parsed?.error) throw new Error(parsed.error);
 
       const result: CollisionResult = {
         id: crypto.randomUUID(),
@@ -359,14 +307,13 @@ Respond ONLY in JSON (no markdown, no backticks):
       setCurrentResult(result);
       setHistory(prev => [result, ...prev]);
 
-      // Scroll to result
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     } catch (err: any) {
       setError(err.message ?? "Collision failed");
     } finally {
       setIsColliding(false);
     }
-  }, [selectedTheories, collisionMode, apiKey]);
+  }, [selectedTheories, collisionMode]);
 
   const handleChainCollide = useCallback((result: CollisionResult) => {
     // Create a virtual theory from the collision result
@@ -404,14 +351,9 @@ Respond ONLY in JSON (no markdown, no backticks):
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs h-7"
-            onClick={() => setApiKeyOpen(true)}
-          >
-            {apiKey ? "API Key Set" : "Set API Key"}
-          </Button>
+          <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+            AI-Powered
+          </Badge>
         </div>
       </div>
 
@@ -653,33 +595,6 @@ Respond ONLY in JSON (no markdown, no backticks):
         </DialogContent>
       </Dialog>
 
-      {/* API Key dialog */}
-      <Dialog open={apiKeyOpen} onOpenChange={setApiKeyOpen}>
-        <DialogContent className="bg-card border-card-border max-w-md">
-          <DialogHeader>
-            <DialogTitle>Claude API Key</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 pt-2">
-            <p className="text-xs text-muted-foreground">
-              Enter your Anthropic API key to power theory collisions. The key is stored locally in your browser only.
-            </p>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={e => setApiKey(e.target.value)}
-              placeholder="sk-ant-..."
-              className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-            <Button
-              className="w-full bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-semibold"
-              onClick={() => setApiKeyOpen(false)}
-              disabled={!apiKey}
-            >
-              Save Key
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
