@@ -12,7 +12,9 @@ import {
   Banknote, Landmark, Receipt, Award, FlaskConical, Zap, Building2,
   Dna, ClipboardCheck, RefreshCw,
 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, lazy, Suspense } from "react";
+
+const AgentHeatmap3D = lazy(() => import("@/components/agents/AgentHeatmap3D"));
 
 const API = "https://zhihuiti-oracle.zeabur.app";
 
@@ -250,6 +252,17 @@ export default function AgentsPage() {
           </Card>
         )}
       </section>
+
+      {/* 2b. 3D Activity Heatmap */}
+      {agents && agents.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Agent Activity Heatmap</h2>
+          <p className="text-xs text-muted-foreground">Height = performance score · Color = score gradient (red→amber→cyan) · Grouped by realm · Drag to rotate</p>
+          <Suspense fallback={<Skeleton className="h-[420px] w-full rounded-xl" />}>
+            <AgentHeatmap3D agents={agents} />
+          </Suspense>
+        </section>
+      )}
 
       {/* 3. Goal Submission */}
       <section className="space-y-3">
