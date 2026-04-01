@@ -90,7 +90,7 @@ function StatCard({ icon: Icon, label, value, sub, cls }: { icon: any; label: st
 export default function AgentsPage() {
   const qc = useQueryClient();
   const [goalText, setGoalText] = useState("");
-  const [activeGoalId, setActiveGoalId] = useState<string | null>(null);
+  const [submittedGoals, setSubmittedGoals] = useState<{ id: string; text: string }[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // ── Queries ──
