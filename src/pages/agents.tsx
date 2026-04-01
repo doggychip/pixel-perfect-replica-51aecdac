@@ -12,7 +12,9 @@ import {
   Banknote, Landmark, Receipt, Award, FlaskConical, Zap, Building2,
   Dna, ClipboardCheck, RefreshCw,
 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, lazy, Suspense } from "react";
+
+const AgentHeatmap3D = lazy(() => import("@/components/agents/AgentHeatmap3D"));
 
 const API = "https://zhihuiti-oracle.zeabur.app";
 
