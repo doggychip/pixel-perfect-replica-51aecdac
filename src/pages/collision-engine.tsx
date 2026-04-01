@@ -351,14 +351,9 @@ export default function CollisionEnginePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs h-7"
-            onClick={() => setApiKeyOpen(true)}
-          >
-            {apiKey ? "API Key Set" : "Set API Key"}
-          </Button>
+          <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+            AI-Powered
+          </Badge>
         </div>
       </div>
 
