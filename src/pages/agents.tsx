@@ -253,6 +253,17 @@ export default function AgentsPage() {
         )}
       </section>
 
+      {/* 2b. 3D Activity Heatmap */}
+      {agents && agents.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Agent Activity Heatmap</h2>
+          <p className="text-xs text-muted-foreground">Height = performance score · Color = score gradient (red→amber→cyan) · Grouped by realm · Drag to rotate</p>
+          <Suspense fallback={<Skeleton className="h-[420px] w-full rounded-xl" />}>
+            <AgentHeatmap3D agents={agents} />
+          </Suspense>
+        </section>
+      )}
+
       {/* 3. Goal Submission */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Submit Goal</h2>
