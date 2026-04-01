@@ -132,7 +132,8 @@ export default function AgentsPage() {
       return r.json();
     },
     onSuccess: (data) => {
-      setActiveGoalId(data.goal_id ?? data.id);
+      const id = data.goal_id ?? data.id;
+      setSubmittedGoals((prev) => [{ id, text: goalText }, ...prev]);
       setGoalText("");
     },
   });
