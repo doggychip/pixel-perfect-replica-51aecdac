@@ -90,7 +90,7 @@ function StatCard({ icon: Icon, label, value, sub, cls }: { icon: any; label: st
 export default function AgentsPage() {
   const qc = useQueryClient();
   const [goalText, setGoalText] = useState("");
-  const [activeGoalId, setActiveGoalId] = useState<string | null>(null);
+  const [submittedGoals, setSubmittedGoals] = useState<{ id: string; text: string }[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // ── Queries ──
@@ -132,7 +132,8 @@ export default function AgentsPage() {
       return r.json();
     },
     onSuccess: (data) => {
-      setActiveGoalId(data.goal_id ?? data.id);
+      const id = data.goal_id ?? data.id;
+      setSubmittedGoals((prev) => [{ id, text: goalText }, ...prev]);
       setGoalText("");
     },
   });
@@ -285,7 +286,17 @@ export default function AgentsPage() {
           </Button>
         </div>
         {goalMut.isError && <p className="text-xs text-red-400">Failed to submit goal.</p>}
-        {activeGoalId && <GoalPoller goalId={activeGoalId} />}
+        {submittedGoals.length > 0 && (
+          <div className="space-y-2 mt-3">
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Submitted Goals</h3>
+            {submittedGoals.map((g) => (
+              <div key={g.id} className="space-y-1">
+                <p className="text-xs text-muted-foreground truncate">📌 {g.text}</p>
+                <GoalPoller goalId={g.id} />
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* 4. Goal History */}
