@@ -286,7 +286,17 @@ export default function AgentsPage() {
           </Button>
         </div>
         {goalMut.isError && <p className="text-xs text-red-400">Failed to submit goal.</p>}
-        {activeGoalId && <GoalPoller goalId={activeGoalId} />}
+        {submittedGoals.length > 0 && (
+          <div className="space-y-2 mt-3">
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Submitted Goals</h3>
+            {submittedGoals.map((g) => (
+              <div key={g.id} className="space-y-1">
+                <p className="text-xs text-muted-foreground truncate">📌 {g.text}</p>
+                <GoalPoller goalId={g.id} />
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* 4. Goal History */}
