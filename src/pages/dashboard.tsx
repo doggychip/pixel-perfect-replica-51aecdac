@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { formatCurrency, pnlColor, agentTypeBadgeClass, agentTypeLabel, formatRelativeTime } from "@/lib/format";
+import { fetchAgents } from "@/lib/agents-api";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bot, Activity, ArrowRight, TrendingUp, Search, FlaskConical, Shield, AlertTriangle, Zap } from "lucide-react";
 
-const API = "https://zhihuiti-oracle.zeabur.app/api/oracle";
+const CRYPTO_API = "https://zhihuiti-oracle.zeabur.app/api/oracle";
 
 const ROLE_ICONS: Record<string, React.ReactNode> = {
   scanner: <Search className="w-4 h-4" />,
@@ -18,12 +19,7 @@ const ROLE_ICONS: Record<string, React.ReactNode> = {
 export default function DashboardPage() {
   const { data: agents, isLoading: agentsLoading, isError: agentsError } = useQuery<any[]>({
     queryKey: ["oracle-agents"],
-    queryFn: async () => {
-      const res = await fetch(`${API}/agents`);
-      if (!res.ok) throw new Error("Backend offline");
-      const json = await res.json();
-      return Array.isArray(json) ? json : json.agents ?? json.data ?? [];
-    },
+    queryFn: fetchAgents,
     refetchInterval: 30_000,
     retry: 1,
   });
@@ -31,7 +27,7 @@ export default function DashboardPage() {
   const { data: cryptoData, isLoading: cryptoLoading } = useQuery<any>({
     queryKey: ["oracle-crypto"],
     queryFn: async () => {
-      const res = await fetch(`${API}/crypto`);
+      const res = await fetch(`${CRYPTO_API}/crypto`);
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -165,7 +161,7 @@ export default function DashboardPage() {
               <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
               <h3 className="font-semibold text-amber-300 mb-1">Backend Offline</h3>
               <p className="text-sm text-muted-foreground">Cannot reach Oracle API. Auto-retrying every 30s.</p>
-              <p className="text-xs text-muted-foreground font-mono mt-1">{API}/agents</p>
+              <p className="text-xs text-muted-foreground font-mono mt-1">agentscity API</p>
             </div>
           ) : agentList.length === 0 ? (
             <div className="rounded-lg border border-card-border bg-card/50 p-8 text-center">

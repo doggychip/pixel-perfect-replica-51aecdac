@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useState, useRef, Suspense } from "react";
 import AgentHeatmap3D from "@/components/agents/AgentHeatmap3D";
+import { fetchAgents } from "@/lib/agents-api";
 
 const API = "https://zhihuiti-oracle.zeabur.app";
 
@@ -103,12 +104,7 @@ export default function AgentsPage() {
 
   const agentsQ = useQuery<any[]>({
     queryKey: ["zhihuiti-agents"],
-    queryFn: async () => {
-      const r = await fetch(`${API}/api/agents`);
-      if (!r.ok) throw new Error();
-      const j = await r.json();
-      return Array.isArray(j) ? j : j.agents ?? j.data ?? [];
-    },
+    queryFn: fetchAgents,
     refetchInterval: 10_000,
     retry: 1,
   });

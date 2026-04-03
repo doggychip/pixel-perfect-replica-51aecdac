@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { formatCurrency, pnlColor, agentTypeBadgeClass, agentTypeLabel } from "@/lib/format";
+import { fetchAgents } from "@/lib/agents-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,7 +9,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie,
 } from "recharts";
 
-const API = "https://zhihuiti-oracle.zeabur.app/api/oracle";
+const CRYPTO_API = "https://zhihuiti-oracle.zeabur.app/api/oracle";
 
 const REGIME_COLORS: Record<string, string> = {
   trending_up: "#10b981",
@@ -27,12 +28,7 @@ const ROLE_COLORS: Record<string, string> = {
 export default function AnalyticsPage() {
   const { data: agents, isLoading: agentsLoading, isError: agentsError } = useQuery<any[]>({
     queryKey: ["oracle-agents"],
-    queryFn: async () => {
-      const res = await fetch(`${API}/agents`);
-      if (!res.ok) throw new Error("Backend offline");
-      const json = await res.json();
-      return Array.isArray(json) ? json : json.agents ?? json.data ?? [];
-    },
+    queryFn: fetchAgents,
     refetchInterval: 30_000,
     retry: 1,
   });
@@ -40,7 +36,7 @@ export default function AnalyticsPage() {
   const { data: cryptoData, isLoading: cryptoLoading } = useQuery<any>({
     queryKey: ["oracle-crypto"],
     queryFn: async () => {
-      const res = await fetch(`${API}/crypto`);
+      const res = await fetch(`${CRYPTO_API}/crypto`);
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
