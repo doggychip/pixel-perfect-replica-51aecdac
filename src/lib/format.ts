@@ -26,14 +26,6 @@ export function agentTypeBadgeClass(type: string): string {
       return "text-purple-400 border-purple-400/30 bg-purple-400/10";
     case "social":
       return "text-pink-400 border-pink-400/30 bg-pink-400/10";
-    case "scanner":
-      return "text-sky-400 border-sky-400/30 bg-sky-400/10";
-    case "trader":
-      return "text-emerald-400 border-emerald-400/30 bg-emerald-400/10";
-    case "researcher":
-      return "text-violet-400 border-violet-400/30 bg-violet-400/10";
-    case "sentinel":
-      return "text-amber-400 border-amber-400/30 bg-amber-400/10";
     default:
       return "text-muted-foreground border-muted bg-muted/10";
   }
@@ -47,14 +39,6 @@ export function agentTypeLabel(type: string): string {
       return "Analytics";
     case "social":
       return "Social";
-    case "scanner":
-      return "Scanner";
-    case "trader":
-      return "Trader";
-    case "researcher":
-      return "Researcher";
-    case "sentinel":
-      return "Sentinel";
     default:
       return type;
   }

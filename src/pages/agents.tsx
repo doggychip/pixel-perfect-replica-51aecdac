@@ -1,408 +1,268 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
+import { apiRequest } from "@/lib/queryClient";
+import { agentTypeBadgeClass, agentTypeLabel, statusDotClass, formatReturn, pnlColor } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  Bot, AlertTriangle, Send, Loader2, CheckCircle2, XCircle,
-  Banknote, Landmark, Receipt, Award, FlaskConical, Zap, Building2,
-  Dna, ClipboardCheck, RefreshCw,
-} from "lucide-react";
-import { useState, useRef, Suspense } from "react";
-import AgentHeatmap3D from "@/components/agents/AgentHeatmap3D";
-import { fetchAgents } from "@/lib/agents-api";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Bot, Plus, Play, Pause, ChevronRight } from "lucide-react";
+import { useState } from "react";
 
-const API = "https://zhihuiti-oracle.zeabur.app";
+const AGENT_TYPES = ["trading", "analytics", "social"] as const;
 
-// ─── Realm helpers ───
-const REALM_BADGE: Record<string, { emoji: string; label: string; cls: string }> = {
-  research: { emoji: "🔬", label: "Research", cls: "text-violet-400 border-violet-400/30 bg-violet-400/10" },
-  execution: { emoji: "⚡", label: "Execution", cls: "text-amber-400 border-amber-400/30 bg-amber-400/10" },
-  central: { emoji: "🏛", label: "Central", cls: "text-cyan-400 border-cyan-400/30 bg-cyan-400/10" },
-};
-
-function realmBadge(realm: string) {
-  const r = REALM_BADGE[realm] ?? { emoji: "❓", label: realm, cls: "text-muted-foreground border-muted bg-muted/10" };
-  return (
-    <Badge variant="outline" className={`text-[10px] font-medium ${r.cls}`}>
-      {r.emoji} {r.label}
-    </Badge>
-  );
-}
-
-// ─── Goal Polling Component ───
-function GoalPoller({ goalId }: { goalId: string }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ["goal-poll", goalId],
-    queryFn: async () => {
-      const res = await fetch(`${API}/api/goals/${goalId}`);
-      if (!res.ok) throw new Error("Failed to poll goal");
-      return res.json();
-    },
-    refetchInterval: (query) => {
-      const status = query.state.data?.status;
-      if (status === "completed" || status === "failed") return false;
-      return 3000;
-    },
-    retry: 2,
-  });
-
-  if (isLoading) return <span className="text-xs text-muted-foreground flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Polling…</span>;
-  if (!data) return null;
-
-  const done = data.status === "completed";
-  const failed = data.status === "failed";
-
-  return (
-    <div className={`rounded-lg border p-3 text-sm ${done ? "border-emerald-500/30 bg-emerald-500/5" : failed ? "border-red-500/30 bg-red-500/5" : "border-cyan-500/30 bg-cyan-500/5"}`}>
-      <div className="flex items-center gap-2 mb-1">
-        {done ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : failed ? <XCircle className="w-4 h-4 text-red-400" /> : <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />}
-        <span className="font-medium">{data.status}</span>
-        <span className="text-xs text-muted-foreground ml-auto">ID: {goalId.slice(0, 8)}</span>
-      </div>
-      {data.result && <pre className="text-xs text-muted-foreground whitespace-pre-wrap mt-1 max-h-40 overflow-auto">{typeof data.result === "string" ? data.result : JSON.stringify(data.result, null, 2)}</pre>}
-    </div>
-  );
-}
-
-// ─── Stat Card ───
-function StatCard({ icon: Icon, label, value, sub, cls }: { icon: any; label: string; value: string | number; sub?: string; cls?: string }) {
-  return (
-    <Card className="bg-card/60 border-card-border">
-      <CardContent className="p-4 flex items-start gap-3">
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${cls ?? "bg-cyan-500/10 text-cyan-400"}`}>
-          <Icon className="w-4 h-4" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="text-lg font-semibold leading-tight">{value}</p>
-          {sub && <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ─── Main Page ───
 export default function AgentsPage() {
   const qc = useQueryClient();
-  const [goalText, setGoalText] = useState("");
-  const [submittedGoals, setSubmittedGoals] = useState<{ id: string; text: string }[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", description: "", type: "trading", strategyId: "" });
+  const [error, setError] = useState("");
 
-  // ── Queries ──
-  const statusQ = useQuery({
-    queryKey: ["zhihuiti-status"],
-    queryFn: async () => { const r = await fetch(`${API}/api/status`); if (!r.ok) throw new Error(); return r.json(); },
-    refetchInterval: 10_000,
-    retry: 1,
+  const { data: agents, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/agents"],
   });
 
-  const agentsQ = useQuery<any[]>({
-    queryKey: ["zhihuiti-agents"],
-    queryFn: fetchAgents,
-    refetchInterval: 10_000,
-    retry: 1,
+  const { data: strategies } = useQuery<any[]>({
+    queryKey: ["/api/strategies"],
   });
 
-  const dataQ = useQuery({
-    queryKey: ["zhihuiti-data"],
-    queryFn: async () => { const r = await fetch(`${API}/api/data`); if (!r.ok) throw new Error(); return r.json(); },
-    refetchInterval: 10_000,
-    retry: 1,
-  });
-
-  // ── Goal mutation ──
-  const goalMut = useMutation({
-    mutationFn: async (goal: string) => {
-      const r = await fetch(`${API}/api/goals`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ goal }),
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/agents", {
+        name: form.name,
+        description: form.description,
+        type: form.type,
+        strategyId: form.strategyId || undefined,
       });
-      if (!r.ok) throw new Error("Goal submission failed");
-      return r.json();
+      return res.json();
     },
-    onSuccess: (data) => {
-      const id = data.goal_id ?? data.id;
-      setSubmittedGoals((prev) => [{ id, text: goalText }, ...prev]);
-      setGoalText("");
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/agents"] });
+      setCreateOpen(false);
+      setForm({ name: "", description: "", type: "trading", strategyId: "" });
+      setError("");
+    },
+    onError: (err: any) => {
+      setError(err.message ?? "Failed to create agent");
     },
   });
 
-  const status = statusQ.data;
-  const agents = agentsQ.data;
-  const dashData = dataQ.data;
-  const economy = dashData?.economy ?? status?.economy;
-  const realms = dashData?.realms;
-  const bloodline = dashData?.bloodline;
-  const inspection = dashData?.inspection;
-  const goalHistory = dashData?.goal_history ?? [];
+  const startMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/agents/${id}/start`);
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/agents"] }),
+  });
 
-  const offline = statusQ.isError && agentsQ.isError;
+  const pauseMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/agents/${id}/pause`);
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/agents"] }),
+  });
 
   return (
-    <div className="p-6 lg:p-10 max-w-7xl space-y-8">
+    <div className="p-6 lg:p-10 max-w-7xl space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Agents</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Real-time agent system from zhihuiti backend</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage and monitor your AI agents</p>
         </div>
-        <Button size="sm" variant="outline" className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10" onClick={() => { qc.invalidateQueries({ queryKey: ["zhihuiti-status"] }); qc.invalidateQueries({ queryKey: ["zhihuiti-agents"] }); qc.invalidateQueries({ queryKey: ["zhihuiti-data"] }); }}>
-          <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh
+        <Button
+          onClick={() => setCreateOpen(true)}
+          className="bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-semibold"
+        >
+          <Plus className="w-4 h-4 mr-1.5" />
+          Create Agent
         </Button>
       </div>
 
-      {/* Offline banner */}
-      {offline && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-8 text-center">
-          <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-          <h3 className="font-semibold text-amber-300 mb-1">Backend Offline</h3>
-          <p className="text-sm text-muted-foreground">Cannot reach {API}. Auto-retrying every 10s.</p>
+      {/* Table */}
+      {isLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full" />
+          ))}
         </div>
-      )}
-
-      {/* 1. System Status Bar */}
-      {status && (
-        <Card className="bg-card/60 border-card-border">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span className="text-muted-foreground">Mode:</span>
-                <span className="font-medium">{status.mode ?? "unknown"}</span>
-              </div>
-              {status.llm_backend && (
-                <div><span className="text-muted-foreground">LLM:</span> <span className="font-medium">{status.llm_backend}</span></div>
-              )}
-              {status.model && (
-                <div><span className="text-muted-foreground">Model:</span> <span className="font-medium">{status.model}</span></div>
-              )}
-              {status.agent_count != null && (
-                <div><span className="text-muted-foreground">Agents:</span> <span className="font-medium">{status.agent_count}</span></div>
-              )}
-              {economy && (
-                <>
-                  <div><span className="text-muted-foreground">Money Supply:</span> <span className="font-medium">{Number(economy.money_supply ?? 0).toLocaleString()}</span></div>
-                  <div><span className="text-muted-foreground">Treasury:</span> <span className="font-medium">{Number(economy.treasury_balance ?? economy.treasury ?? 0).toLocaleString()}</span></div>
-                  <div><span className="text-muted-foreground">Taxes:</span> <span className="font-medium">{Number(economy.taxes_collected ?? 0).toLocaleString()}</span></div>
-                  <div><span className="text-muted-foreground">Rewards:</span> <span className="font-medium">{Number(economy.rewards_paid ?? 0).toLocaleString()}</span></div>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 2. Agent Table */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Agent Registry</h2>
-        {agentsQ.isLoading ? (
-          <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}</div>
-        ) : !agents || agents.length === 0 ? (
-          <Card className="bg-card/50 border-card-border p-8 text-center">
-            <Bot className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">No agents registered.</p>
-          </Card>
-        ) : (
-          <Card className="bg-card/60 border-card-border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-card-border">
-                  <TableHead className="text-xs">ID</TableHead>
-                  <TableHead className="text-xs">Role</TableHead>
-                  <TableHead className="text-xs">Realm</TableHead>
-                  <TableHead className="text-xs text-right">Gen</TableHead>
-                  <TableHead className="text-xs text-right">Budget</TableHead>
-                  <TableHead className="text-xs text-right">Avg Score</TableHead>
-                  <TableHead className="text-xs text-center">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {agents.map((a: any) => {
-                  const id = a.id ?? a._id ?? "";
-                  const alive = a.status === "alive" || a.status === "active";
-                  return (
-                    <TableRow key={id} className="border-card-border hover:bg-accent/10">
-                      <TableCell className="font-mono text-xs">{String(id).slice(0, 8)}</TableCell>
-                      <TableCell className="text-xs capitalize">{a.role ?? "—"}</TableCell>
-                      <TableCell>{realmBadge(a.realm ?? a.domains?.[0] ?? "unknown")}</TableCell>
-                      <TableCell className="text-right text-xs">{a.generation ?? "—"}</TableCell>
-                      <TableCell className="text-right text-xs">{a.budget != null ? Number(a.budget).toLocaleString() : "—"}</TableCell>
-                      <TableCell className="text-right text-xs">{a.avg_score != null ? Number(a.avg_score).toFixed(2) : a.score != null ? Number(a.score).toFixed(2) : "—"}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="outline" className={`text-[10px] ${alive ? "text-emerald-400 border-emerald-400/30 bg-emerald-400/10" : "text-red-400 border-red-400/30 bg-red-400/10"}`}>
-                          {alive ? "Alive" : "Dead"}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </Card>
-        )}
-      </section>
-
-      {/* 2b. 3D Activity Heatmap */}
-      {agents && agents.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Agent Activity Heatmap</h2>
-          <p className="text-xs text-muted-foreground">Height = performance score · Color = score gradient (red→amber→cyan) · Grouped by realm · Drag to rotate</p>
-          <Suspense fallback={<Skeleton className="h-[420px] w-full rounded-xl" />}>
-            <AgentHeatmap3D agents={agents} />
-          </Suspense>
-        </section>
-      )}
-
-      {/* 3. Goal Submission */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Submit Goal</h2>
-        <div className="flex gap-2">
-          <Input
-            ref={inputRef}
-            placeholder="Enter a goal for the agent system…"
-            value={goalText}
-            onChange={(e) => setGoalText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && goalText.trim()) goalMut.mutate(goalText.trim()); }}
-            className="flex-1 bg-card/60 border-card-border"
-          />
+      ) : !agents || agents.length === 0 ? (
+        <div className="rounded-lg border border-card-border bg-card/50 p-12 text-center">
+          <Bot className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <h3 className="font-semibold mb-1">No agents yet</h3>
+          <p className="text-sm text-muted-foreground mb-4">Create your first agent to get started.</p>
           <Button
-            onClick={() => goalText.trim() && goalMut.mutate(goalText.trim())}
-            disabled={goalMut.isPending || !goalText.trim()}
+            onClick={() => setCreateOpen(true)}
             className="bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-semibold"
           >
-            {goalMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            <span className="ml-1.5">Submit</span>
+            <Plus className="w-4 h-4 mr-1.5" />
+            Create Agent
           </Button>
         </div>
-        {goalMut.isError && <p className="text-xs text-red-400">Failed to submit goal.</p>}
-        {submittedGoals.length > 0 && (
-          <div className="space-y-2 mt-3">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Submitted Goals</h3>
-            {submittedGoals.map((g) => (
-              <div key={g.id} className="space-y-1">
-                <p className="text-xs text-muted-foreground truncate">📌 {g.text}</p>
-                <GoalPoller goalId={g.id} />
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* 4. Goal History */}
-      {goalHistory.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Goal History</h2>
-          <Card className="bg-card/60 border-card-border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-card-border">
-                  <TableHead className="text-xs">Goal</TableHead>
-                  <TableHead className="text-xs text-right">Tasks</TableHead>
-                  <TableHead className="text-xs text-right">Avg Score</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {[...goalHistory].reverse().map((g: any, i: number) => (
-                  <TableRow key={i} className="border-card-border hover:bg-accent/10">
-                    <TableCell className="text-xs max-w-[400px] truncate">{g.goal ?? g.text ?? "—"}</TableCell>
-                    <TableCell className="text-right text-xs">{g.task_count ?? g.tasks ?? "—"}</TableCell>
-                    <TableCell className="text-right text-xs">{g.avg_score != null ? Number(g.avg_score).toFixed(2) : "—"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        </section>
+      ) : (
+        <div className="rounded-lg border border-card-border bg-card/50 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-card-border text-muted-foreground text-xs">
+                <th className="text-left py-3 px-4 font-medium">Status</th>
+                <th className="text-left py-3 px-4 font-medium">Name</th>
+                <th className="text-left py-3 px-4 font-medium hidden md:table-cell">Type</th>
+                <th className="text-left py-3 px-4 font-medium hidden lg:table-cell">Strategy</th>
+                <th className="text-right py-3 px-4 font-medium hidden lg:table-cell">Trades</th>
+                <th className="text-right py-3 px-4 font-medium hidden md:table-cell">P&amp;L</th>
+                <th className="text-right py-3 px-4 font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {agents.map((agent: any) => (
+                <tr
+                  key={agent.id}
+                  className="border-b border-card-border/50 hover:bg-accent/30 transition-colors"
+                >
+                  <td className="py-3 px-4">
+                    <span className={`inline-block w-2 h-2 rounded-full ${statusDotClass(agent.status)}`} />
+                  </td>
+                  <td className="py-3 px-4">
+                    <Link href={`/agents/${agent.id}`}>
+                      <div className="flex items-center gap-1 cursor-pointer group">
+                        <span className="font-medium group-hover:text-cyan-400 transition-colors">
+                          {agent.name}
+                        </span>
+                        <ChevronRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </Link>
+                    {agent.description && (
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-48">{agent.description}</p>
+                    )}
+                  </td>
+                  <td className="py-3 px-4 hidden md:table-cell">
+                    <Badge variant="outline" className={`text-[10px] font-medium ${agentTypeBadgeClass(agent.type)}`}>
+                      {agentTypeLabel(agent.type)}
+                    </Badge>
+                  </td>
+                  <td className="py-3 px-4 text-xs text-muted-foreground hidden lg:table-cell">
+                    {agent.strategyId ? (
+                      <span className="text-foreground/70">Assigned</span>
+                    ) : (
+                      <span className="italic">None</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono text-xs text-muted-foreground hidden lg:table-cell">
+                    {agent.latestMetrics?.tradeCount ?? 0}
+                  </td>
+                  <td className={`py-3 px-4 text-right font-mono text-xs hidden md:table-cell ${pnlColor(agent.latestMetrics?.totalReturn ?? 0)}`}>
+                    {agent.latestMetrics ? formatReturn(agent.latestMetrics.totalReturn ?? 0) : "—"}
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="flex justify-end gap-1.5">
+                      {agent.status === "active" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                          onClick={() => pauseMutation.mutate(agent.id)}
+                          disabled={pauseMutation.isPending}
+                        >
+                          <Pause className="w-3 h-3 mr-1" />
+                          Pause
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                          onClick={() => startMutation.mutate(agent.id)}
+                          disabled={startMutation.isPending}
+                        >
+                          <Play className="w-3 h-3 mr-1" />
+                          Start
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {/* 5. Economy Dashboard */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Economy Dashboard</h2>
-
-        {/* Economy cards */}
-        {economy && (
-          <div>
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Economy</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-              <StatCard icon={Banknote} label="Money Supply" value={Number(economy.money_supply ?? 0).toLocaleString()} cls="bg-emerald-500/10 text-emerald-400" />
-              <StatCard icon={Banknote} label="Minted" value={Number(economy.minted ?? 0).toLocaleString()} cls="bg-cyan-500/10 text-cyan-400" />
-              <StatCard icon={Banknote} label="Burned" value={Number(economy.burned ?? 0).toLocaleString()} cls="bg-red-500/10 text-red-400" />
-              <StatCard icon={Landmark} label="Treasury" value={Number(economy.treasury_balance ?? economy.treasury ?? 0).toLocaleString()} cls="bg-amber-500/10 text-amber-400" />
-              <StatCard icon={Receipt} label="Tax Rate" value={economy.tax_rate != null ? `${(Number(economy.tax_rate) * 100).toFixed(1)}%` : "—"} cls="bg-violet-500/10 text-violet-400" />
+      {/* Create Agent Dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="bg-card border-card-border max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Agent</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {error && (
+              <div className="px-3 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                {error}
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Name *</label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="My Trading Bot"
+                className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Description</label>
+              <input
+                type="text"
+                value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="Brief description..."
+                className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type *</label>
+              <select
+                value={form.type}
+                onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
+                className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                {AGENT_TYPES.map(t => (
+                  <option key={t} value={t}>{agentTypeLabel(t)}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Strategy</label>
+              <select
+                value={form.strategyId}
+                onChange={e => setForm(f => ({ ...f, strategyId: e.target.value }))}
+                className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="">— None —</option>
+                {(strategies ?? []).map((s: any) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => { setCreateOpen(false); setError(""); }}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-semibold"
+                onClick={() => createMutation.mutate()}
+                disabled={!form.name || createMutation.isPending}
+              >
+                {createMutation.isPending ? "Creating..." : "Create Agent"}
+              </Button>
             </div>
           </div>
-        )}
-
-        {/* Realms */}
-        {realms && (
-          <div>
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 mt-4">Realms</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {Object.entries(realms).map(([key, val]: [string, any]) => {
-                const r = REALM_BADGE[key] ?? { emoji: "❓", label: key, cls: "" };
-                return (
-                  <Card key={key} className="bg-card/60 border-card-border">
-                    <CardHeader className="pb-2 pt-4 px-4">
-                      <CardTitle className="text-sm flex items-center gap-1.5">{r.emoji} {r.label}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-4 pb-4 grid grid-cols-2 gap-y-1 text-xs">
-                      <span className="text-muted-foreground">Active</span><span className="text-right font-medium">{val.agents_active ?? val.active ?? "—"}</span>
-                      <span className="text-muted-foreground">Frozen</span><span className="text-right font-medium">{val.frozen ?? "—"}</span>
-                      <span className="text-muted-foreground">Bankrupt</span><span className="text-right font-medium">{val.bankrupt ?? "—"}</span>
-                      <span className="text-muted-foreground">Budget</span><span className="text-right font-medium">{val.budget != null ? Number(val.budget).toLocaleString() : "—"}</span>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Bloodline */}
-        {bloodline && (
-          <div>
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 mt-4">Bloodline</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <StatCard icon={Dna} label="Total Genes" value={bloodline.total_genes ?? "—"} cls="bg-pink-500/10 text-pink-400" />
-              <StatCard icon={Dna} label="Alive Genes" value={bloodline.alive_genes ?? "—"} cls="bg-emerald-500/10 text-emerald-400" />
-              <StatCard icon={Dna} label="Max Generation" value={bloodline.max_generation ?? "—"} cls="bg-cyan-500/10 text-cyan-400" />
-              <StatCard icon={Dna} label="Avg Score" value={bloodline.avg_score != null ? Number(bloodline.avg_score).toFixed(2) : "—"} cls="bg-amber-500/10 text-amber-400" />
-            </div>
-          </div>
-        )}
-
-        {/* Inspection */}
-        {inspection && (
-          <div>
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 mt-4">Inspection</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <StatCard icon={ClipboardCheck} label="Total" value={inspection.total ?? "—"} cls="bg-cyan-500/10 text-cyan-400" />
-              <StatCard icon={CheckCircle2} label="Accepted" value={inspection.accepted ?? "—"} cls="bg-emerald-500/10 text-emerald-400" />
-              <StatCard icon={XCircle} label="Rejected" value={inspection.rejected ?? "—"} cls="bg-red-500/10 text-red-400" />
-              <StatCard icon={Award} label="Accept Rate" value={inspection.acceptance_rate != null ? `${(Number(inspection.acceptance_rate) * 100).toFixed(1)}%` : "—"} cls="bg-violet-500/10 text-violet-400" />
-            </div>
-          </div>
-        )}
-
-        {/* Fallback if no dashboard data */}
-        {!economy && !realms && !bloodline && !inspection && !dataQ.isLoading && (
-          <Card className="bg-card/50 border-card-border p-8 text-center">
-            <p className="text-sm text-muted-foreground">Economy data not available from /api/data endpoint.</p>
-          </Card>
-        )}
-        {dataQ.isLoading && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
-          </div>
-        )}
-      </section>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

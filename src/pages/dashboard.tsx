@@ -1,75 +1,55 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { formatCurrency, pnlColor, agentTypeBadgeClass, agentTypeLabel, formatRelativeTime } from "@/lib/format";
-import { fetchAgents } from "@/lib/agents-api";
+import { formatCurrency, formatReturn, pnlColor, agentTypeBadgeClass, agentTypeLabel, statusDotClass, formatRelativeTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bot, Activity, ArrowRight, TrendingUp, Search, FlaskConical, Shield, AlertTriangle, Zap } from "lucide-react";
-
-const CRYPTO_API = "https://zhihuiti-oracle.zeabur.app/api/oracle";
-
-const ROLE_ICONS: Record<string, React.ReactNode> = {
-  scanner: <Search className="w-4 h-4" />,
-  trader: <TrendingUp className="w-4 h-4" />,
-  researcher: <FlaskConical className="w-4 h-4" />,
-  sentinel: <Shield className="w-4 h-4" />,
-};
+import { Bot, BarChart3, Activity, Package, ArrowRight, TrendingUp } from "lucide-react";
 
 export default function DashboardPage() {
-  const { data: agents, isLoading: agentsLoading, isError: agentsError } = useQuery<any[]>({
-    queryKey: ["oracle-agents"],
-    queryFn: fetchAgents,
-    refetchInterval: 30_000,
-    retry: 1,
+  const { data: analytics, isLoading: analyticsLoading } = useQuery<any>({
+    queryKey: ["/api/analytics"],
   });
 
-  const { data: cryptoData, isLoading: cryptoLoading } = useQuery<any>({
-    queryKey: ["oracle-crypto"],
-    queryFn: async () => {
-      const res = await fetch(`${CRYPTO_API}/crypto`);
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    refetchInterval: 15_000,
-    retry: 1,
+  const { data: agents, isLoading: agentsLoading } = useQuery<any[]>({
+    queryKey: ["/api/agents"],
   });
 
-  const prices: any[] = cryptoData?.results ?? [];
-  const agentList = agents ?? [];
+  const { data: products, isLoading: productsLoading } = useQuery<any[]>({
+    queryKey: ["/api/products"],
+  });
 
-  // Derived stats
-  const roleCount = agentList.reduce((acc: Record<string, number>, a: any) => {
-    acc[a.role] = (acc[a.role] ?? 0) + 1;
-    return acc;
-  }, {});
+  const { data: pricesData } = useQuery<any>({
+    queryKey: ["/api/data/prices"],
+    refetchInterval: 10000,
+  });
 
-  const trendingUp = prices.filter((p: any) => p.regime === "trending_up").length;
-  const trendingDown = prices.filter((p: any) => p.regime === "trending_down").length;
+  const prices: any[] = pricesData?.prices ?? [];
+  const isLive: boolean = pricesData?.isLive ?? false;
 
   const statCards = [
     {
       label: "Total Agents",
-      value: agentsLoading ? null : agentList.length,
+      value: analyticsLoading ? null : (analytics?.totalAgents ?? 0),
       icon: Bot,
       color: "text-cyan-400",
     },
     {
-      label: "Agent Roles",
-      value: agentsLoading ? null : Object.keys(roleCount).length,
+      label: "Active Agents",
+      value: analyticsLoading ? null : (analytics?.activeAgents ?? 0),
       icon: Activity,
       color: "text-emerald-400",
     },
     {
-      label: "Instruments Tracked",
-      value: cryptoLoading ? null : prices.length,
-      icon: Zap,
+      label: "Total Trades",
+      value: analyticsLoading ? null : (analytics?.totalTrades ?? 0),
+      icon: BarChart3,
       color: "text-purple-400",
     },
     {
-      label: "Trending Up",
-      value: cryptoLoading ? null : trendingUp,
-      icon: TrendingUp,
+      label: "Products",
+      value: productsLoading ? null : (products?.length ?? 0),
+      icon: Package,
       color: "text-amber-400",
     },
   ];
@@ -81,13 +61,13 @@ export default function DashboardPage() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-medium mb-3">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            Oracle Platform
+            AI Agent Platform
           </div>
           <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">
             Big Brain <span className="text-cyan-400">Dashboard</span>
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Live overview of your Oracle agents and market instruments.
+            Monitor and manage your AI agents across all connected products.
           </p>
         </div>
 
@@ -110,38 +90,41 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Live Prices */}
+        {/* Price Ticker */}
         {prices.length > 0 && (
           <section>
             <div className="flex items-center gap-3 mb-2">
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                LIVE PRICES
+              <span
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                  isLive
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${isLive ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
+                {isLive ? "LIVE PRICES" : "SIMULATED"}
               </span>
             </div>
             <div className="flex gap-3 overflow-x-auto pb-1">
               {prices.map((p: any) => (
-                <div key={p.instrument} className="flex-shrink-0 flex items-center gap-3 px-3 py-2 rounded-lg bg-card/50 border border-card-border">
-                  <span className="text-xs font-medium text-foreground">{p.instrument.replace("_USDT", "")}</span>
+                <div key={p.pair} className="flex-shrink-0 flex items-center gap-3 px-3 py-2 rounded-lg bg-card/50 border border-card-border">
+                  <span className="text-xs font-medium text-foreground">{p.pair.replace("/USD", "")}</span>
                   <span className="font-mono text-xs text-foreground">{formatCurrency(p.price)}</span>
-                  <span className={`font-mono text-xs ${(p.change_pct ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {(p.change_pct ?? 0) >= 0 ? "+" : ""}{((p.change_pct ?? 0) * 100).toFixed(2)}%
+                  <span className={`font-mono text-xs ${p.change24h >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {p.change24h >= 0 ? "+" : ""}{p.change24h.toFixed(2)}%
                   </span>
-                  <Badge variant="outline" className={`text-[9px] ${p.regime === "trending_up" ? "text-emerald-400 border-emerald-400/30" : p.regime === "trending_down" ? "text-red-400 border-red-400/30" : "text-muted-foreground border-muted"}`}>
-                    {p.regime?.replace("_", " ")}
-                  </Badge>
                 </div>
               ))}
             </div>
           </section>
         )}
 
-        {/* Agents List */}
+        {/* Recent Agent Activity */}
         <section>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Bot className="w-4 h-4 text-cyan-400" />
-              <h2 className="text-base font-semibold">Oracle Agents</h2>
+              <TrendingUp className="w-4 h-4 text-cyan-400" />
+              <h2 className="text-base font-semibold">Recent Agent Activity</h2>
             </div>
             <Link href="/agents">
               <button className="text-sm text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium">
@@ -156,14 +139,7 @@ export default function DashboardPage() {
                 <Skeleton key={i} className="h-14 w-full" />
               ))}
             </div>
-          ) : agentsError ? (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-8 text-center">
-              <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-              <h3 className="font-semibold text-amber-300 mb-1">Backend Offline</h3>
-              <p className="text-sm text-muted-foreground">Cannot reach Oracle API. Auto-retrying every 30s.</p>
-              <p className="text-xs text-muted-foreground font-mono mt-1">agentscity API</p>
-            </div>
-          ) : agentList.length === 0 ? (
+          ) : !agents || agents.length === 0 ? (
             <div className="rounded-lg border border-card-border bg-card/50 p-8 text-center">
               <Bot className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">No agents yet.</p>
@@ -174,32 +150,55 @@ export default function DashboardPage() {
               </Link>
             </div>
           ) : (
-            <div className="grid gap-2">
-              {agentList.slice(0, 8).map((agent: any) => (
-                <div key={agent.id ?? agent._id} className="rounded-lg border border-card-border bg-card/50 p-3 flex items-center gap-3 hover:bg-accent/20 transition-colors">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${agentTypeBadgeClass(agent.role)}`}>
-                    {ROLE_ICONS[agent.role] ?? <Bot className="w-4 h-4" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <Link href={`/agents/${agent.id ?? agent._id}`}>
-                        <span className="font-medium hover:text-cyan-400 transition-colors cursor-pointer truncate">
-                          {agent.name}
-                        </span>
-                      </Link>
-                      <Badge variant="outline" className={`text-[10px] font-medium ${agentTypeBadgeClass(agent.role)}`}>
-                        {agentTypeLabel(agent.role)}
-                      </Badge>
-                    </div>
-                    {agent.instruments?.length > 0 && (
-                      <span className="text-xs text-muted-foreground">📊 {agent.instruments.join(", ")}</span>
-                    )}
-                  </div>
-                  {agent.createdAt && (
-                    <span className="text-xs text-muted-foreground">{formatRelativeTime(agent.createdAt)}</span>
-                  )}
-                </div>
-              ))}
+            <div className="rounded-lg border border-card-border bg-card/50 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-card-border text-muted-foreground text-xs">
+                    <th className="text-left py-2.5 px-4 font-medium">Agent</th>
+                    <th className="text-left py-2.5 px-4 font-medium hidden md:table-cell">Type</th>
+                    <th className="text-left py-2.5 px-4 font-medium">Status</th>
+                    <th className="text-right py-2.5 px-4 font-medium hidden lg:table-cell">Return</th>
+                    <th className="text-right py-2.5 px-4 font-medium hidden lg:table-cell">Trades</th>
+                    <th className="text-right py-2.5 px-4 font-medium">Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(agents ?? []).slice(0, 8).map((agent: any) => (
+                    <tr
+                      key={agent.id}
+                      className="border-b border-card-border/50 hover:bg-accent/30 transition-colors"
+                    >
+                      <td className="py-2.5 px-4">
+                        <Link href={`/agents/${agent.id}`}>
+                          <span className="font-medium hover:text-cyan-400 transition-colors cursor-pointer">
+                            {agent.name}
+                          </span>
+                        </Link>
+                      </td>
+                      <td className="py-2.5 px-4 hidden md:table-cell">
+                        <Badge variant="outline" className={`text-[10px] font-medium ${agentTypeBadgeClass(agent.type)}`}>
+                          {agentTypeLabel(agent.type)}
+                        </Badge>
+                      </td>
+                      <td className="py-2.5 px-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full ${statusDotClass(agent.status)}`} />
+                          <span className="text-xs capitalize text-muted-foreground">{agent.status}</span>
+                        </div>
+                      </td>
+                      <td className={`py-2.5 px-4 text-right font-mono text-xs hidden lg:table-cell ${pnlColor(agent.latestMetrics?.totalReturn ?? 0)}`}>
+                        {agent.latestMetrics ? formatReturn(agent.latestMetrics.totalReturn ?? 0) : "—"}
+                      </td>
+                      <td className="py-2.5 px-4 text-right font-mono text-xs hidden lg:table-cell text-muted-foreground">
+                        {agent.latestMetrics?.tradeCount ?? 0}
+                      </td>
+                      <td className="py-2.5 px-4 text-right text-xs text-muted-foreground">
+                        {formatRelativeTime(agent.updatedAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </section>
