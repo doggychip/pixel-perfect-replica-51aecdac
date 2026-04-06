@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -231,7 +231,7 @@ export default function CollisionEnginePage() {
   const [currentResult, setCurrentResult] = useState<CollisionResult | null>(null);
   const [history, setHistory] = useState<CollisionResult[]>([]);
   const [viewingResult, setViewingResult] = useState<CollisionResult | null>(null);
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem("zh_claude_api_key") ?? "");
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem("zh_openrouter_api_key") ?? "");
   const [apiKeyOpen, setApiKeyOpen] = useState(false);
   const [error, setError] = useState("");
   const resultRef = useRef<HTMLDivElement>(null);
@@ -248,7 +248,7 @@ export default function CollisionEnginePage() {
 
   // Save API key
   useEffect(() => {
-    if (apiKey) localStorage.setItem("zh_claude_api_key", apiKey);
+    if (apiKey) localStorage.setItem("zh_openrouter_api_key", apiKey);
   }, [apiKey]);
 
   const handleSelect = useCallback((id: number) => {
@@ -291,16 +291,14 @@ export default function CollisionEnginePage() {
     setError("");
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
+          "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "deepseek/deepseek-r1",
           max_tokens: 1200,
           messages: [{
             role: "user",
@@ -336,7 +334,7 @@ Respond ONLY in JSON (no markdown, no backticks):
       }
 
       const data = await res.json();
-      const text = data.content?.[0]?.text ?? "";
+      const text = data.choices?.[0]?.message?.content ?? "";
 
       // Parse JSON from response (handle potential markdown wrapping)
       let jsonStr = text.trim();
@@ -359,7 +357,6 @@ Respond ONLY in JSON (no markdown, no backticks):
       setCurrentResult(result);
       setHistory(prev => [result, ...prev]);
 
-      // Scroll to result
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     } catch (err: any) {
       setError(err.message ?? "Collision failed");
@@ -657,17 +654,17 @@ Respond ONLY in JSON (no markdown, no backticks):
       <Dialog open={apiKeyOpen} onOpenChange={setApiKeyOpen}>
         <DialogContent className="bg-card border-card-border max-w-md">
           <DialogHeader>
-            <DialogTitle>Claude API Key</DialogTitle>
+            <DialogTitle>OpenRouter API Key</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 pt-2">
             <p className="text-xs text-muted-foreground">
-              Enter your Anthropic API key to power theory collisions. The key is stored locally in your browser only.
+              Enter your OpenRouter API key to power theory collisions (DeepSeek R1). The key is stored locally in your browser only.
             </p>
             <input
               type="password"
               value={apiKey}
               onChange={e => setApiKey(e.target.value)}
-              placeholder="sk-ant-..."
+              placeholder="sk-or-..."
               className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
             <Button

@@ -1,86 +1,120 @@
 import { useQuery } from "@tanstack/react-query";
-import { formatReturn, formatCurrency, pnlColor, agentTypeBadgeClass, agentTypeLabel } from "@/lib/format";
+import { formatCurrency, pnlColor, agentTypeBadgeClass, agentTypeLabel } from "@/lib/format";
+import { fetchAgents } from "@/lib/agents-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DollarSign, TrendingUp, TrendingDown, Activity } from "lucide-react";
+import { Bot, TrendingUp, TrendingDown, Activity, AlertTriangle, Zap } from "lucide-react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie,
 } from "recharts";
 
+const CRYPTO_API = "https://zhihuiti-oracle.zeabur.app/api/oracle";
+
+const REGIME_COLORS: Record<string, string> = {
+  trending_up: "#10b981",
+  trending_down: "#ef4444",
+  quiet: "#6b7280",
+  volatile: "#f59e0b",
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  scanner: "#38bdf8",
+  trader: "#10b981",
+  researcher: "#8b5cf6",
+  sentinel: "#f59e0b",
+};
+
 export default function AnalyticsPage() {
-  const { data: analytics, isLoading: analyticsLoading } = useQuery<any>({
-    queryKey: ["/api/analytics"],
+  const { data: agents, isLoading: agentsLoading, isError: agentsError } = useQuery<any[]>({
+    queryKey: ["oracle-agents"],
+    queryFn: fetchAgents,
+    refetchInterval: 30_000,
+    retry: 1,
   });
 
-  const { data: agents, isLoading: agentsLoading } = useQuery<any[]>({
-    queryKey: ["/api/agents"],
+  const { data: cryptoData, isLoading: cryptoLoading } = useQuery<any>({
+    queryKey: ["oracle-crypto"],
+    queryFn: async () => {
+      const res = await fetch(`${CRYPTO_API}/crypto`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    refetchInterval: 15_000,
+    retry: 1,
   });
 
-  const isLoading = analyticsLoading || agentsLoading;
+  const prices: any[] = cryptoData?.results ?? [];
+  const agentList = agents ?? [];
+  const isLoading = agentsLoading || cryptoLoading;
 
-  // Agents with metrics for comparison chart
-  const agentsWithMetrics = (agents ?? [])
-    .filter((a: any) => a.latestMetrics != null)
-    .sort((a: any, b: any) => (b.latestMetrics?.totalReturn ?? 0) - (a.latestMetrics?.totalReturn ?? 0))
-    .slice(0, 10);
+  // Role distribution for pie chart
+  const roleDistribution = Object.entries(
+    agentList.reduce((acc: Record<string, number>, a: any) => {
+      acc[a.role] = (acc[a.role] ?? 0) + 1;
+      return acc;
+    }, {})
+  ).map(([role, count]) => ({ name: agentTypeLabel(role), value: count as number, role }));
 
-  const chartData = agentsWithMetrics.map((a: any) => ({
-    name: a.name.length > 14 ? a.name.slice(0, 14) + "…" : a.name,
-    return: parseFloat(((a.latestMetrics?.totalReturn ?? 0) * 100).toFixed(2)),
-    type: a.type,
-  }));
+  // Market signal chart data
+  const signalChartData = prices
+    .sort((a: any, b: any) => (b.signal_score ?? 0) - (a.signal_score ?? 0))
+    .map((p: any) => ({
+      name: p.instrument.replace("_USDT", ""),
+      score: parseFloat(((p.signal_score ?? 0) * 100).toFixed(1)),
+      regime: p.regime,
+    }));
 
-  // Best / worst agent
-  const bestAgent = agentsWithMetrics[0] ?? null;
-  const worstAgent = agentsWithMetrics[agentsWithMetrics.length - 1] ?? null;
+  // Regime breakdown
+  const regimeCounts = prices.reduce((acc: Record<string, number>, p: any) => {
+    acc[p.regime] = (acc[p.regime] ?? 0) + 1;
+    return acc;
+  }, {});
 
-  // Avg sharpe
-  const sharpeValues = (agents ?? [])
-    .filter((a: any) => a.latestMetrics?.sharpe != null)
-    .map((a: any) => a.latestMetrics.sharpe as number);
-  const avgSharpe = sharpeValues.length > 0
-    ? sharpeValues.reduce((s, v) => s + v, 0) / sharpeValues.length
-    : null;
+  // Top signal
+  const topSignal = prices.length > 0 ? prices.reduce((best, p) => (p.signal_score ?? 0) > (best.signal_score ?? 0) ? p : best) : null;
 
   const statCards = [
     {
-      label: "Total P&L",
-      value: analyticsLoading ? null : formatCurrency(analytics?.totalPnl ?? 0),
-      icon: DollarSign,
-      color: pnlColor(analytics?.totalPnl ?? 0),
-      mono: true,
+      label: "Total Agents",
+      value: agentsLoading ? null : agentList.length,
+      icon: Bot,
+      color: "text-cyan-400",
     },
     {
-      label: "Best Agent",
-      value: agentsLoading ? null : (bestAgent?.name ?? "—"),
-      icon: TrendingUp,
-      color: "text-emerald-400",
-      mono: false,
-    },
-    {
-      label: "Worst Agent",
-      value: agentsLoading ? null : (worstAgent?.name ?? "—"),
-      icon: TrendingDown,
-      color: "text-red-400",
-      mono: false,
-    },
-    {
-      label: "Avg Sharpe",
-      value: agentsLoading ? null : (avgSharpe != null ? avgSharpe.toFixed(2) : "—"),
+      label: "Instruments",
+      value: cryptoLoading ? null : prices.length,
       icon: Activity,
+      color: "text-purple-400",
+    },
+    {
+      label: "Top Signal",
+      value: cryptoLoading ? null : (topSignal ? `${topSignal.instrument.replace("_USDT", "")} (${((topSignal.signal_score ?? 0) * 100).toFixed(0)}%)` : "—"),
+      icon: Zap,
+      color: "text-emerald-400",
+    },
+    {
+      label: "Trending Up",
+      value: cryptoLoading ? null : (regimeCounts["trending_up"] ?? 0),
+      icon: TrendingUp,
       color: "text-amber-400",
-      mono: true,
     },
   ];
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Platform-wide performance overview</p>
+        <p className="text-sm text-muted-foreground mt-0.5">Live platform analytics from Oracle API</p>
       </div>
+
+      {agentsError && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-6 text-center">
+          <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+          <h3 className="font-semibold text-amber-300 mb-1">Backend Offline</h3>
+          <p className="text-sm text-muted-foreground">Auto-retrying every 30s.</p>
+        </div>
+      )}
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -94,7 +128,7 @@ export default function AnalyticsPage() {
               {stat.value === null ? (
                 <Skeleton className="h-6 w-24" />
               ) : (
-                <div className={`text-lg font-semibold ${stat.mono ? "font-mono" : ""} ${stat.color}`}>
+                <div className={`text-lg font-semibold ${stat.color}`}>
                   {stat.value}
                 </div>
               )}
@@ -103,24 +137,25 @@ export default function AnalyticsPage() {
         ))}
       </div>
 
-      {/* Agent Performance Comparison */}
+      {/* Signal Scores Chart */}
       <Card className="bg-card/50 border-card-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold">Agent Performance Comparison (Top 10)</CardTitle>
+          <CardTitle className="text-sm font-semibold">Signal Scores by Instrument</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {cryptoLoading ? (
             <Skeleton className="h-64 w-full" />
-          ) : chartData.length === 0 ? (
+          ) : signalChartData.length === 0 ? (
             <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">
-              No agent metrics available yet
+              No market data available
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={chartData} layout="vertical" margin={{ left: 16, right: 24, top: 4, bottom: 4 }}>
+              <BarChart data={signalChartData} layout="vertical" margin={{ left: 16, right: 24, top: 4, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
                 <XAxis
                   type="number"
+                  domain={[0, 100]}
                   tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                   axisLine={false}
                   tickLine={false}
@@ -129,7 +164,7 @@ export default function AnalyticsPage() {
                 <YAxis
                   type="category"
                   dataKey="name"
-                  width={100}
+                  width={60}
                   tick={{ fontSize: 11, fill: "hsl(var(--foreground))" }}
                   axisLine={false}
                   tickLine={false}
@@ -141,14 +176,13 @@ export default function AnalyticsPage() {
                     borderRadius: "6px",
                     fontSize: 12,
                   }}
-                  labelStyle={{ color: "hsl(var(--muted-foreground))" }}
-                  formatter={(v: any) => [`${(v as number).toFixed(2)}%`, "Return"]}
+                  formatter={(v: any) => [`${v}%`, "Signal Score"]}
                 />
-                <Bar dataKey="return" radius={[0, 4, 4, 0]}>
-                  {chartData.map((entry, index) => (
+                <Bar dataKey="score" radius={[0, 4, 4, 0]}>
+                  {signalChartData.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
-                      fill={entry.return >= 0 ? "#10b981" : "#ef4444"}
+                      fill={REGIME_COLORS[entry.regime] ?? "#6b7280"}
                       opacity={0.85}
                     />
                   ))}
@@ -159,46 +193,134 @@ export default function AnalyticsPage() {
         </CardContent>
       </Card>
 
-      {/* Agent Breakdown Table */}
-      {!isLoading && agentsWithMetrics.length > 0 && (
+      <div className="grid lg:grid-cols-2 gap-3">
+        {/* Agent Role Distribution */}
         <Card className="bg-card/50 border-card-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Agent Breakdown</CardTitle>
+            <CardTitle className="text-sm font-semibold">Agent Role Distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {agentsLoading ? (
+              <Skeleton className="h-48 w-full" />
+            ) : roleDistribution.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">
+                No agents created yet
+              </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <ResponsiveContainer width="50%" height={180}>
+                  <PieChart>
+                    <Pie
+                      data={roleDistribution}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={70}
+                      innerRadius={35}
+                      strokeWidth={0}
+                    >
+                      {roleDistribution.map((entry, i) => (
+                        <Cell key={i} fill={ROLE_COLORS[entry.role] ?? "#6b7280"} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        background: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "6px",
+                        fontSize: 12,
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-2">
+                  {roleDistribution.map((r) => (
+                    <div key={r.role} className="flex items-center gap-2 text-xs">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: ROLE_COLORS[r.role] ?? "#6b7280" }} />
+                      <span className="text-muted-foreground">{r.name}</span>
+                      <span className="font-mono font-medium">{r.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Market Regime Breakdown */}
+        <Card className="bg-card/50 border-card-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Market Regime Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {cryptoLoading ? (
+              <Skeleton className="h-48 w-full" />
+            ) : prices.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">
+                No market data available
+              </div>
+            ) : (
+              <div className="space-y-3 pt-2">
+                {Object.entries(regimeCounts).map(([regime, count]) => (
+                  <div key={regime}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs capitalize text-muted-foreground">{regime.replace("_", " ")}</span>
+                      <span className="text-xs font-mono font-medium">{count as number}/{prices.length}</span>
+                    </div>
+                    <div className="h-2 bg-muted/30 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${((count as number) / prices.length) * 100}%`,
+                          backgroundColor: REGIME_COLORS[regime] ?? "#6b7280",
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Instrument Details Table */}
+      {!cryptoLoading && prices.length > 0 && (
+        <Card className="bg-card/50 border-card-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Instrument Details</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-card-border text-muted-foreground text-xs">
-                  <th className="text-left py-2.5 px-4 font-medium">Agent</th>
-                  <th className="text-left py-2.5 px-4 font-medium hidden md:table-cell">Type</th>
-                  <th className="text-right py-2.5 px-4 font-medium">Return</th>
-                  <th className="text-right py-2.5 px-4 font-medium hidden lg:table-cell">Sharpe</th>
-                  <th className="text-right py-2.5 px-4 font-medium hidden lg:table-cell">Win Rate</th>
-                  <th className="text-right py-2.5 px-4 font-medium">Trades</th>
+                  <th className="text-left py-2.5 px-4 font-medium">Instrument</th>
+                  <th className="text-right py-2.5 px-4 font-medium">Price</th>
+                  <th className="text-right py-2.5 px-4 font-medium">Change</th>
+                  <th className="text-left py-2.5 px-4 font-medium hidden md:table-cell">Regime</th>
+                  <th className="text-left py-2.5 px-4 font-medium hidden lg:table-cell">Dominant Theory</th>
+                  <th className="text-right py-2.5 px-4 font-medium">Signal</th>
                 </tr>
               </thead>
               <tbody>
-                {agentsWithMetrics.map((agent: any) => (
-                  <tr key={agent.id} className="border-b border-card-border/50 hover:bg-accent/30 transition-colors">
-                    <td className="py-2.5 px-4">
-                      <span className="font-medium">{agent.name}</span>
+                {prices.map((p: any) => (
+                  <tr key={p.instrument} className="border-b border-card-border/50 hover:bg-accent/30 transition-colors">
+                    <td className="py-2.5 px-4 font-medium">{p.instrument.replace("_USDT", "")}</td>
+                    <td className="py-2.5 px-4 text-right font-mono text-xs">{formatCurrency(p.price)}</td>
+                    <td className={`py-2.5 px-4 text-right font-mono text-xs ${(p.change_pct ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      {(p.change_pct ?? 0) >= 0 ? "+" : ""}{((p.change_pct ?? 0) * 100).toFixed(2)}%
                     </td>
                     <td className="py-2.5 px-4 hidden md:table-cell">
-                      <Badge variant="outline" className={`text-[10px] ${agentTypeBadgeClass(agent.type)}`}>
-                        {agentTypeLabel(agent.type)}
+                      <Badge variant="outline" className="text-[10px]" style={{ color: REGIME_COLORS[p.regime] ?? "#6b7280", borderColor: `${REGIME_COLORS[p.regime] ?? "#6b7280"}50` }}>
+                        {p.regime?.replace("_", " ")}
                       </Badge>
                     </td>
-                    <td className={`py-2.5 px-4 text-right font-mono text-xs ${pnlColor(agent.latestMetrics.totalReturn ?? 0)}`}>
-                      {formatReturn(agent.latestMetrics.totalReturn ?? 0)}
+                    <td className="py-2.5 px-4 text-xs text-muted-foreground hidden lg:table-cell capitalize">
+                      {p.dominant_theory?.replace(/_/g, " ") ?? "—"}
                     </td>
-                    <td className="py-2.5 px-4 text-right font-mono text-xs text-muted-foreground hidden lg:table-cell">
-                      {agent.latestMetrics.sharpe != null ? agent.latestMetrics.sharpe.toFixed(2) : "—"}
-                    </td>
-                    <td className="py-2.5 px-4 text-right font-mono text-xs text-muted-foreground hidden lg:table-cell">
-                      {agent.latestMetrics.winRate != null ? `${(agent.latestMetrics.winRate * 100).toFixed(1)}%` : "—"}
-                    </td>
-                    <td className="py-2.5 px-4 text-right font-mono text-xs text-muted-foreground">
-                      {agent.latestMetrics.tradeCount ?? 0}
+                    <td className="py-2.5 px-4 text-right font-mono text-xs font-medium">
+                      {((p.signal_score ?? 0) * 100).toFixed(0)}%
                     </td>
                   </tr>
                 ))}
