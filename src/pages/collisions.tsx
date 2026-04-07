@@ -1,10 +1,14 @@
 import { useState, useMemo, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Search, Zap, ArrowRight, Filter } from "lucide-react";
+import { Search, Zap, ArrowRight, Filter, BarChart3, Globe2, AlertTriangle } from "lucide-react";
 import theoriesData from "@/data/theories.json";
 import collisionsData from "@/data/collisions.json";
+
+const API = "https://zhihuiti-oracle.zeabur.app";
 
 type Theory = {
   id: string;
