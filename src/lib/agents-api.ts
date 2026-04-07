@@ -1,10 +1,7 @@
-const AGENTS_URL = import.meta.env.DEV
-  ? "http://localhost:5050/api/all-agents"
-  : "https://agentscity.zeabur.app/api/all-agents";
+const AGENTS_URL = "https://zhihuiti-oracle.zeabur.app/api/agents";
 
 /**
- * Map agentscity API shape → dashboard-expected shape.
- * Source: {id, role, budget, depth, avg_score, alive, config, created_at, source}
+ * Map zhihuiti API shape → dashboard-expected shape.
  */
 function mapAgent(raw: any): any {
   return {
