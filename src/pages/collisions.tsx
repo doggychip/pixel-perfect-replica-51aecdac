@@ -316,15 +316,35 @@ export default function CollisionsPage() {
   const [strengthFilter, setStrengthFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Collision | null>(null);
 
+  const theoryStatsQ = useQuery<any>({
+    queryKey: ["theory-graph-stats"],
+    queryFn: async () => {
+      const res = await fetch(`${API}/api/oracle/theories/stats`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    refetchInterval: 30_000,
+    retry: 1,
+  });
+
+  const crossDomainQ = useQuery<any>({
+    queryKey: ["cross-domain"],
+    queryFn: async () => {
+      const res = await fetch(`${API}/api/oracle/cross-domain`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    refetchInterval: 30_000,
+    retry: 1,
+  });
+
   const filtered = useMemo(() => {
     return collisions.filter(c => {
-      // Strength filter
       if (strengthFilter !== "all") {
         if (strengthFilter === "deep" && !c.collision_strength.includes("DEEP")) return false;
         if (strengthFilter === "significant" && !c.collision_strength.includes("SIGNIFICANT")) return false;
         if (strengthFilter === "resonance" && !c.collision_strength.includes("RESONANCE")) return false;
       }
-      // Search filter
       if (search) {
         const q = search.toLowerCase();
         const nameA = theories[c.a]?.name?.toLowerCase() || "";
@@ -342,6 +362,10 @@ export default function CollisionsPage() {
   const sigCount = collisions.filter(c => c.collision_strength.includes("SIGNIFICANT")).length;
   const resCount = collisions.filter(c => c.collision_strength.includes("RESONANCE")).length;
 
+  const stats = theoryStatsQ.data;
+  const crossDomain = crossDomainQ.data;
+  const correlations: any[] = crossDomain?.correlations ?? crossDomain?.bridges ?? crossDomain?.data ?? [];
+
   return (
     <div className="p-6 lg:p-10 max-w-7xl space-y-6">
       <CollisionDetailDialog collision={selected} open={!!selected} onClose={() => setSelected(null)} />
@@ -353,6 +377,90 @@ export default function CollisionsPage() {
           Explore mathematical isomorphisms between {Object.keys(theories).length} theories across domains
         </p>
       </div>
+
+      {/* Live Theory Graph Stats */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <BarChart3 className="w-4 h-4 text-purple-400" />
+          <h2 className="text-base font-semibold">Live Theory Graph Stats</h2>
+          {theoryStatsQ.isError && (
+            <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-400/30 bg-amber-400/10">
+              <AlertTriangle className="w-3 h-3 mr-1" /> Offline
+            </Badge>
+          )}
+        </div>
+        {theoryStatsQ.isLoading ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20" />)}
+          </div>
+        ) : stats ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { label: "Total Theories", value: stats.total_theories ?? stats.theory_count ?? stats.nodes ?? "—", color: "text-cyan-400" },
+              { label: "Total Edges", value: stats.total_edges ?? stats.edge_count ?? stats.connections ?? "—", color: "text-purple-400" },
+              { label: "Avg Connectivity", value: typeof (stats.avg_connectivity ?? stats.avg_degree) === "number" ? (stats.avg_connectivity ?? stats.avg_degree).toFixed(2) : "—", color: "text-emerald-400" },
+              { label: "Domains", value: stats.domain_count ?? stats.domains ?? "—", color: "text-amber-400" },
+            ].map((s, i) => (
+              <Card key={i} className="bg-card/50 border-card-border">
+                <CardContent className="p-4">
+                  <span className={`text-xs ${s.color}`}>{s.label}</span>
+                  <div className="font-mono text-2xl font-semibold mt-1">{s.value}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : null}
+      </section>
+
+      {/* Cross-Domain Correlations */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <Globe2 className="w-4 h-4 text-emerald-400" />
+          <h2 className="text-base font-semibold">Cross-Domain Correlations</h2>
+          {crossDomainQ.isError && (
+            <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-400/30 bg-amber-400/10">
+              <AlertTriangle className="w-3 h-3 mr-1" /> Offline
+            </Badge>
+          )}
+        </div>
+        {crossDomainQ.isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14" />)}
+          </div>
+        ) : correlations.length > 0 ? (
+          <div className="grid gap-2">
+            {correlations.slice(0, 8).map((cor: any, i: number) => (
+              <Card key={i} className="bg-card/50 border-card-border">
+                <CardContent className="p-3 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-500/10 text-emerald-400 flex-shrink-0">
+                    <Globe2 className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {cor.domain_a ?? cor.source ?? "—"} ↔ {cor.domain_b ?? cor.target ?? "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {cor.description ?? cor.bridge ?? cor.pattern ?? `Correlation: ${cor.correlation ?? cor.score ?? "—"}`}
+                    </p>
+                  </div>
+                  {(cor.correlation ?? cor.score ?? cor.strength) != null && (
+                    <Badge variant="outline" className="text-[10px] text-cyan-400 border-cyan-400/30 bg-cyan-400/10 flex-shrink-0">
+                      {typeof (cor.correlation ?? cor.score ?? cor.strength) === "number"
+                        ? (cor.correlation ?? cor.score ?? cor.strength).toFixed(3)
+                        : cor.correlation ?? cor.score ?? cor.strength}
+                    </Badge>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : !crossDomainQ.isError ? (
+          <div className="rounded-lg border border-card-border bg-card/50 p-8 text-center">
+            <Globe2 className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No cross-domain correlations available yet.</p>
+          </div>
+        ) : null}
+      </section>
 
       {/* Interactive Collider */}
       <TheoryCollider />
